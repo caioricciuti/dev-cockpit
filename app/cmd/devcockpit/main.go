@@ -27,33 +27,7 @@ func main() {
 		}
 	}
 
-	// Initialize logger
-	if err := logger.Initialize(debugMode); err != nil {
-		log.Fatal("Failed to initialize logger:", err)
-	}
-	defer logger.GetLogger().Close()
-
-	fmt.Printf("Debug logging: %v\n", debugMode)
-	fmt.Printf("Log file: %s\n", logger.GetLogPath())
-	if debugMode {
-		fmt.Println("Tail logs in another terminal with:")
-		fmt.Printf("  tail -f %s\n\n", logger.GetLogPath())
-	} else {
-		fmt.Println("Run with --debug to stream logs to the console.")
-		fmt.Println()
-	}
-
-	logger.Info("Starting Dev Cockpit v%s", version)
-
-	// Initialize configuration
-	cfg, err := config.Load()
-	if err != nil {
-		logger.Error("Failed to load configuration: %v", err)
-		log.Fatal("Failed to load configuration:", err)
-	}
-	logger.Info("Configuration loaded successfully")
-
-	// Check for command line arguments
+	// Check for command line arguments FIRST (before logger initialization)
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version", "--version", "-v":
@@ -80,10 +54,41 @@ func main() {
 			showHelp()
 			os.Exit(0)
 		case "logs", "--logs":
+			// Initialize logger just to get the path
+			if err := logger.Initialize(false); err != nil {
+				log.Fatal("Failed to initialize logger:", err)
+			}
 			fmt.Printf("Log file location: %s\n", logger.GetLogPath())
 			os.Exit(0)
 		}
 	}
+
+	// Initialize logger (only when launching TUI)
+	if err := logger.Initialize(debugMode); err != nil {
+		log.Fatal("Failed to initialize logger:", err)
+	}
+	defer logger.GetLogger().Close()
+
+	// Show debug info only when launching TUI
+	fmt.Printf("Debug logging: %v\n", debugMode)
+	fmt.Printf("Log file: %s\n", logger.GetLogPath())
+	if debugMode {
+		fmt.Println("Tail logs in another terminal with:")
+		fmt.Printf("  tail -f %s\n\n", logger.GetLogPath())
+	} else {
+		fmt.Println("Run with --debug to stream logs to the console.")
+		fmt.Println()
+	}
+
+	logger.Info("Starting Dev Cockpit v%s", version)
+
+	// Initialize configuration
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error("Failed to load configuration: %v", err)
+		log.Fatal("Failed to load configuration:", err)
+	}
+	logger.Info("Configuration loaded successfully")
 
 	// Create the main application
 	application := app.New(cfg, version)
@@ -102,31 +107,57 @@ func main() {
 }
 
 func showHelp() {
-	fmt.Printf(`
-Dev Cockpit v%s - Professional macOS Development Command Center
+	fmt.Printf(`Dev Cockpit v%s - macOS Development Command Center for Apple Silicon
 
-Usage:
-  devcockpit              Launch the interactive TUI
-  devcockpit --debug      Launch with debug logging enabled
-  devcockpit version      Show version information
-  devcockpit logs         Show log file location
-  devcockpit help         Show this help message
+USAGE:
+  devcockpit [flags]
+  devcockpit cleanup empty-trash
 
-Debug Mode:
-  Debug logging is OFF by default; use --debug to enable
-  tail -f ~/.devcockpit/debug.log    View logs in real-time
+AVAILABLE TUI MODULES:
+  Dashboard       Real-time system monitoring (CPU, GPU, Memory, Disk, Network)
+  Quick Actions   One-tap maintenance and optimization tasks
+  Cleanup         Free up disk space (caches, logs, trash, downloads)
+  Packages        Manage Homebrew, npm, and other package managers
+  System          Hardware info, diagnostics, and system details
+  Docker          Container management and cleanup
+  Network         Interface analysis and connectivity diagnostics
+  Security        Firewall, FileVault, and SIP status
+  Support         Project support and sponsorship information
 
-Keyboard Shortcuts (in app):
-  Tab/Shift+Tab    Navigate between modules
-  ←/→/Home/End     Navigate modules
-  Enter            Select/Execute
-  Esc              Return to module switcher
-  l                Toggle logs overlay
-  q                Quit current view
-  Q                Quit application
-  ?                Show help
+CLI COMMANDS:
+  devcockpit                    Launch interactive TUI
+  devcockpit cleanup empty-trash   Empty the trash (CLI mode)
+  devcockpit --help, -h         Show this help message
+  devcockpit --version, -v      Show version information
+  devcockpit --debug            Launch with debug logging
+  devcockpit --logs             Show debug log file location
 
-For more information: https://devcockpit.dev
-Support: support@devcockpit.dev
+EXAMPLES:
+  devcockpit                   # Start the interactive interface
+  devcockpit --debug           # Launch with live debug output
+  devcockpit cleanup empty-trash  # Empty trash from command line
+
+CONFIGURATION:
+  Config: ~/.devcockpit/config.yaml
+  Logs:   ~/.devcockpit/debug.log
+
+KEYBOARD SHORTCUTS (in TUI):
+  1-9         Jump to module
+  Tab         Cycle through modules
+  ↑/↓         Navigate lists
+  Enter       Select/Execute
+  ESC         Go back / Close modal
+  q, Ctrl+C   Quit
+
+DOCUMENTATION:
+  Website: https://devcockpit.app
+  GitHub:  https://github.com/caioricciuti/dev-cockpit
+  Issues:  https://github.com/caioricciuti/dev-cockpit/issues
+
+SUPPORT:
+  Sponsor: https://github.com/sponsors/caioricciuti
+  Donate:  https://buymeacoffee.com/caioricciuti
+
+Pro Tip: Run 'devcockpit' to explore all features interactively!
 `, version)
 }

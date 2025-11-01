@@ -198,31 +198,25 @@ devcockpit -v
 devcockpit --debug
 ```
 
-**Run specific cleanup operations:**
+**Run cleanup operations:**
 ```bash
-devcockpit cleanup <operation>
+devcockpit cleanup empty-trash
 ```
 
-Available cleanup operations:
-- `system-caches` - Clear system cache files
-- `user-caches` - Clear user cache files
-- `logs` - Clear log files
-- `downloads` - Clean Downloads folder
-- `trash` - Clean trash
-- `empty-trash` - Empty trash completely
-- `brew-cache` - Clean Homebrew cache
-- `npm-cache` - Clean npm cache
-- `docker-cache` - Clean Docker cache and unused images
-- `xcode-derived` - Clean Xcode DerivedData
-- `all` - Run all cleanup operations
+This empties the trash from the command line without launching the TUI.
+
+**Show log file location:**
+```bash
+devcockpit --logs
+```
 
 **Examples:**
 ```bash
-# Clear Homebrew cache
-devcockpit cleanup brew-cache
+# Empty trash from CLI
+devcockpit cleanup empty-trash
 
-# Run all cleanup operations
-devcockpit cleanup all
+# Show where logs are stored
+devcockpit --logs
 
 # Enable debug logging
 devcockpit --debug
@@ -287,7 +281,7 @@ rm -rf ~/.devcockpit
 
 Need assistance?
 
-- **Documentation:** [devcockpit.dev](https://devcockpit.dev)
+- **Documentation:** [devcockpit.app](https://devcockpit.app)
 - **GitHub Issues:** [Report bugs or request features](https://github.com/caioricciuti/dev-cockpit/issues)
 - **Troubleshooting:** See the [Troubleshooting Guide](/troubleshooting)
 

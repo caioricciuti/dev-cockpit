@@ -95,7 +95,7 @@ download_binary() {
     print_success "Downloaded successfully"
 }
 
-# Verify checksum (optional, if available)
+# Verify checksum (required for security)
 verify_checksum() {
     print_info "Verifying checksum..."
 
@@ -108,11 +108,19 @@ verify_checksum() {
         if [[ "$EXPECTED_CHECKSUM" == "$ACTUAL_CHECKSUM" ]]; then
             print_success "Checksum verified"
         else
-            print_warning "Checksum mismatch, but continuing anyway"
+            print_error "Checksum verification failed!"
+            print_error "Expected: $EXPECTED_CHECKSUM"
+            print_error "Actual:   $ACTUAL_CHECKSUM"
+            print_error "The downloaded file may be corrupted or tampered with."
+            print_error "Aborting installation for security."
+            rm -f /tmp/devcockpit-checksum-$$
+            rm -f "$TEMP_FILE"
+            exit 1
         fi
         rm -f /tmp/devcockpit-checksum-$$
     else
         print_warning "Checksum file not available, skipping verification"
+        print_warning "This is not recommended for security reasons"
     fi
 }
 

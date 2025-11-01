@@ -1,4 +1,4 @@
-# Dev Cockpit v1.0.0 for macOS
+# Dev Cockpit
 
 Dev Cockpit is a Go-powered terminal UI that turns any Apple Silicon Mac into a development and operations command center. The project is now fully open source and sustained by community donations.
 
@@ -181,7 +181,6 @@ Dev Cockpit is free for everyone. If it saves you time, please consider helping 
 ## Support
 
 - Issues: https://github.com/caioricciuti/dev-cockpit/issues
-- Docs:   https://devcockpit.dev/docs
-- Email:  support@devcockpit.dev
+- Docs:  https://devcockpit.app/getting-started
 
 Enjoy the cockpit! Feedback and contributions are always welcome.

@@ -195,7 +195,7 @@ func setDefaults() {
 // createDefaultConfig creates a default configuration file
 func createDefaultConfig(configFile string) error {
 	defaultConfig := `# Dev Cockpit Configuration
-# https://devcockpit.dev/docs/configuration
+# https://devcockpit.app/docs/configuration
 
 # General Settings
 theme: dark

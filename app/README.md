@@ -209,8 +209,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📬 Support
 
-- **Email**: support@devcockpit.dev
-- **Documentation**: [https://devcockpit.dev/docs](https://devcockpit.dev/docs)
+- **Email**: support@devcockpit.app
+- **Documentation**: [https://devcockpit.app/docs](https://devcockpit.app/docs)
 - **Issues**: [GitHub Issues](https://github.com/caioricciuti/dev-cockpit/issues)
 - **Donations**: [https://buymeacoffee.com/caioricciuti](https://buymeacoffee.com/caioricciuti)
 
