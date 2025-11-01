@@ -9,6 +9,7 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/quickactions"
+	"github.com/caioricciuti/dev-cockpit/internal/uninstaller"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -59,6 +60,22 @@ func main() {
 				log.Fatal("Failed to initialize logger:", err)
 			}
 			fmt.Printf("Log file location: %s\n", logger.GetLogPath())
+			os.Exit(0)
+		case "uninstall", "--uninstall":
+			// Check for --force flag
+			force := false
+			for _, arg := range os.Args[2:] {
+				if arg == "--force" || arg == "-f" {
+					force = true
+					break
+				}
+			}
+
+			// Perform uninstallation
+			if err := uninstaller.Uninstall(force); err != nil {
+				fmt.Printf("Uninstall failed: %v\n", err)
+				os.Exit(1)
+			}
 			os.Exit(0)
 		}
 	}
@@ -112,6 +129,7 @@ func showHelp() {
 USAGE:
   devcockpit [flags]
   devcockpit cleanup empty-trash
+  devcockpit uninstall [--force]
 
 AVAILABLE TUI MODULES:
   Dashboard       Real-time system monitoring (CPU, GPU, Memory, Disk, Network)
@@ -125,17 +143,20 @@ AVAILABLE TUI MODULES:
   Support         Project support and sponsorship information
 
 CLI COMMANDS:
-  devcockpit                    Launch interactive TUI
+  devcockpit                       Launch interactive TUI
   devcockpit cleanup empty-trash   Empty the trash (CLI mode)
-  devcockpit --help, -h         Show this help message
-  devcockpit --version, -v      Show version information
-  devcockpit --debug            Launch with debug logging
-  devcockpit --logs             Show debug log file location
+  devcockpit uninstall             Uninstall Dev Cockpit from the system
+  devcockpit uninstall --force     Uninstall without confirmation prompts
+  devcockpit --help, -h            Show this help message
+  devcockpit --version, -v         Show version information
+  devcockpit --debug               Launch with debug logging
+  devcockpit --logs                Show debug log file location
 
 EXAMPLES:
-  devcockpit                   # Start the interactive interface
-  devcockpit --debug           # Launch with live debug output
+  devcockpit                      # Start the interactive interface
+  devcockpit --debug              # Launch with live debug output
   devcockpit cleanup empty-trash  # Empty trash from command line
+  devcockpit uninstall            # Uninstall Dev Cockpit
 
 CONFIGURATION:
   Config: ~/.devcockpit/config.yaml

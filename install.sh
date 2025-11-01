@@ -156,7 +156,7 @@ create_config_dir() {
 print_completion() {
     echo ""
     echo -e "${GREEN}╔════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║  Dev Cockpit installed successfully! 🚀   ║${NC}"
+    echo -e "${GREEN}║  Dev Cockpit installed successfully! 🚀    ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${BLUE}Get started:${NC}"
@@ -174,8 +174,8 @@ print_completion() {
 main() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║      Dev Cockpit Installer v1.0.0         ║${NC}"
-    echo -e "${BLUE}║  Professional macOS Development Cockpit   ║${NC}"
+    echo -e "${BLUE}║      Dev Cockpit Installer v1.0.0          ║${NC}"
+    echo -e "${BLUE}║  Professional macOS Development Cockpit    ║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
     echo ""
 

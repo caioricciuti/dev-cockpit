@@ -64,6 +64,8 @@ Dev Cockpit also supports direct CLI commands for quick operations:
 
 ```bash
 devcockpit cleanup empty-trash    # Empty trash without TUI
+devcockpit uninstall              # Uninstall Dev Cockpit
+devcockpit uninstall --force      # Uninstall without prompts
 ```
 
 ### Keyboard Shortcuts

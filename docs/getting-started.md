@@ -205,6 +205,12 @@ devcockpit cleanup empty-trash
 
 This empties the trash from the command line without launching the TUI.
 
+**Uninstall Dev Cockpit:**
+```bash
+devcockpit uninstall              # Interactive uninstall with prompts
+devcockpit uninstall --force      # Uninstall without confirmation
+```
+
 **Show log file location:**
 ```bash
 devcockpit --logs
@@ -214,6 +220,9 @@ devcockpit --logs
 ```bash
 # Empty trash from CLI
 devcockpit cleanup empty-trash
+
+# Uninstall Dev Cockpit
+devcockpit uninstall
 
 # Show where logs are stored
 devcockpit --logs
@@ -267,8 +276,24 @@ If you encounter any issues:
 
 ## Uninstalling
 
-If you need to uninstall Dev Cockpit:
+If you need to uninstall Dev Cockpit, use the built-in uninstall command:
 
+```bash
+devcockpit uninstall
+```
+
+This will:
+- Stop Dev Cockpit if running
+- Remove the binary from `/usr/local/bin/devcockpit`
+- Prompt to remove configuration directory (`~/.devcockpit/`)
+- Clean up temporary files
+
+For non-interactive uninstallation:
+```bash
+devcockpit uninstall --force
+```
+
+**Manual uninstallation** (if needed):
 ```bash
 # Remove binary
 sudo rm /usr/local/bin/devcockpit

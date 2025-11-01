@@ -341,8 +341,24 @@ If you're still experiencing issues:
 
 ## Uninstalling Dev Cockpit
 
-If you need to uninstall:
+If you need to uninstall, use the built-in command:
 
+```bash
+devcockpit uninstall
+```
+
+This interactive command will:
+- Check if Dev Cockpit is running and offer to stop it
+- Remove the binary from `/usr/local/bin/devcockpit` (requests sudo if needed)
+- Prompt to remove configuration directory (`~/.devcockpit/`)
+- Clean up temporary files (`/tmp/devcockpit-*`)
+
+For non-interactive uninstallation:
+```bash
+devcockpit uninstall --force
+```
+
+**Manual uninstallation** (fallback):
 ```bash
 # Remove binary
 sudo rm /usr/local/bin/devcockpit
