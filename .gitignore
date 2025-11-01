@@ -1,1 +1,39 @@
-DEVSWIFT.md
+# macOS metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Local configuration/state
+.devcockpit/
+
+# Build artifacts
+app/build/
+build/
+bin/
+dist/
+
+# Go toolchain outputs
+*.test
+*.out
+coverage.txt
+coverage.out
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+
+/node_modules/
+/docs/node_modules/
