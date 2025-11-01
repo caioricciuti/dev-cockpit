@@ -101,7 +101,7 @@ verify_checksum() {
 
     CHECKSUM_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${BINARY_NAME}-darwin-arm64.sha256"
 
-    if curl -s -f "$CHECKSUM_URL" -o /tmp/devcockpit-checksum-$$ 2>/dev/null; then
+    if curl -s -L -f "$CHECKSUM_URL" -o /tmp/devcockpit-checksum-$$ 2>/dev/null; then
         EXPECTED_CHECKSUM=$(cat /tmp/devcockpit-checksum-$$ | awk '{print $1}')
         ACTUAL_CHECKSUM=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
 
