@@ -23,7 +23,10 @@ jobs:
 
       - name: Get version from release
         id: get_version
-        run: echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build binary for Apple Silicon
         working-directory: ./app
