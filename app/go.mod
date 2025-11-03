@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/shirou/gopsutil/v3 v3.23.11
 	github.com/spf13/viper v1.18.1
+	golang.org/x/mod v0.12.0
 )
 
 require (

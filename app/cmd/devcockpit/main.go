@@ -10,6 +10,7 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/quickactions"
 	"github.com/caioricciuti/dev-cockpit/internal/uninstaller"
+	"github.com/caioricciuti/dev-cockpit/internal/updater"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -77,6 +78,31 @@ func main() {
 				os.Exit(1)
 			}
 			os.Exit(0)
+		case "update", "--update":
+			// Parse flags
+			force := false
+			checkOnly := false
+			for _, arg := range os.Args[2:] {
+				switch arg {
+				case "--force", "-f":
+					force = true
+				case "--check":
+					checkOnly = true
+				}
+			}
+
+			// Perform update
+			opts := updater.UpdateOptions{
+				Force:      force,
+				CheckOnly:  checkOnly,
+				CurrentVer: version,
+			}
+
+			if err := updater.Update(opts); err != nil {
+				fmt.Printf("Update failed: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
 		}
 	}
 
@@ -130,6 +156,7 @@ USAGE:
   devcockpit [flags]
   devcockpit cleanup empty-trash
   devcockpit uninstall [--force]
+  devcockpit update [--check | --force]
 
 AVAILABLE TUI MODULES:
   Dashboard       Real-time system monitoring (CPU, GPU, Memory, Disk, Network)
@@ -145,6 +172,9 @@ AVAILABLE TUI MODULES:
 CLI COMMANDS:
   devcockpit                       Launch interactive TUI
   devcockpit cleanup empty-trash   Empty the trash (CLI mode)
+  devcockpit update                Update to the latest version
+  devcockpit update --check        Check for updates without installing
+  devcockpit update --force        Update without confirmation prompts
   devcockpit uninstall             Uninstall Dev Cockpit from the system
   devcockpit uninstall --force     Uninstall without confirmation prompts
   devcockpit --help, -h            Show this help message
@@ -156,6 +186,7 @@ EXAMPLES:
   devcockpit                      # Start the interactive interface
   devcockpit --debug              # Launch with live debug output
   devcockpit cleanup empty-trash  # Empty trash from command line
+  devcockpit update               # Update to the latest version
   devcockpit uninstall            # Uninstall Dev Cockpit
 
 CONFIGURATION:
