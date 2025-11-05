@@ -1,6 +1,7 @@
 package quickactions
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +16,13 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+const (
+	// Default timeout for commands to prevent hanging
+	defaultCommandTimeout = 30 * time.Second
+	shortCommandTimeout   = 5 * time.Second
+	longCommandTimeout    = 60 * time.Second
 )
 
 // Action represents a quick action
@@ -562,9 +570,9 @@ func (m *Model) fixAllCommon() tea.Cmd {
 func (m *Model) killHeavyProcesses() error {
 	// Get processes using more than 80% CPU
 	cmd := "ps aux | awk '$3 > 80 && NR > 1 {print $2}' | head -5"
-	output, err := exec.Command("sh", "-c", cmd).Output()
+	output, err := runShellWithTimeoutOutput(shortCommandTimeout, cmd)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get heavy processes: %v", err)
 	}
 
 	pids := strings.Fields(strings.TrimSpace(string(output)))
@@ -572,17 +580,21 @@ func (m *Model) killHeavyProcesses() error {
 
 	for _, pid := range pids {
 		if pid != "" {
-			// Kill the process
-			if err := exec.Command("kill", "-9", pid).Run(); err == nil {
+			logger.Debug("Attempting to kill process %s", pid)
+			if err := runCommandWithTimeout(shortCommandTimeout, "kill", "-9", pid); err == nil {
 				killed++
+				logger.Info("Killed process %s", pid)
+			} else {
+				logger.Warn("Failed to kill process %s: %v", pid, err)
 			}
 		}
 	}
 
 	if killed == 0 {
-		return fmt.Errorf("No heavy processes found or killed")
+		return fmt.Errorf("no heavy processes found or killed")
 	}
 
+	logger.Info("Killed %d heavy processes", killed)
 	return nil
 }
 
@@ -600,43 +612,85 @@ func (m *Model) disableAnimations() error {
 	}
 
 	for _, cmd := range commands {
-		exec.Command(cmd[0], cmd[1:]...).Run()
+		if err := runCommandWithTimeout(shortCommandTimeout, cmd[0], cmd[1:]...); err != nil {
+			logger.Warn("Failed to set animation preference: %v", err)
+		}
 	}
 
 	// Restart Dock to apply changes
-	return exec.Command("killall", "Dock").Run()
+	logger.Info("Restarting Dock to apply animation changes")
+	return runCommandWithTimeout(shortCommandTimeout, "killall", "Dock")
 }
 
 func (m *Model) rebuildLaunchServices() error {
-	return exec.Command(
-		"/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
-		"-kill", "-r", "-domain", "local", "-domain", "system", "-domain", "user",
-	).Run()
+	// Try the lsregister command with timeout
+	lsregisterPath := "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+	logger.Info("Rebuilding Launch Services database")
+	err := runCommandWithTimeout(longCommandTimeout, lsregisterPath,
+		"-kill", "-r", "-domain", "local", "-domain", "system", "-domain", "user")
+
+	if err != nil {
+		logger.Error("Failed to rebuild launch services: %v", err)
+		return fmt.Errorf("failed to rebuild launch services: %v", err)
+	}
+
+	logger.Info("Launch Services rebuild completed")
+	return nil
 }
 
 func (m *Model) fixWiFi() error {
-	// Get the correct WiFi interface (Apple Silicon compatible)
-	networkInterface := getActiveNetworkInterface()
+	logger.Info("Starting WiFi reset")
 
-	// Try multiple interface names for WiFi
-	wifiInterfaces := []string{networkInterface, "Wi-Fi", "en0", "en1"}
+	// Try to get the Wi-Fi service name (more reliable on Apple Silicon)
+	wifiServices := []string{"Wi-Fi", "WiFi", "AirPort"}
 
 	success := false
-	for _, iface := range wifiInterfaces {
+	for _, service := range wifiServices {
+		logger.Debug("Trying WiFi service: %s", service)
+
 		// Turn WiFi off
-		if err := exec.Command("networksetup", "-setairportpower", iface, "off").Run(); err == nil {
-			// Use shell sleep command
-			exec.Command("sh", "-c", "sleep 2").Run()
+		if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", service, "off"); err == nil {
+			logger.Info("WiFi turned off for service: %s", service)
+
+			// Wait 2 seconds
+			time.Sleep(2 * time.Second)
+
 			// Turn WiFi on
-			if err := exec.Command("networksetup", "-setairportpower", iface, "on").Run(); err == nil {
+			if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", service, "on"); err == nil {
+				logger.Info("WiFi turned on for service: %s", service)
 				success = true
 				break
+			} else {
+				logger.Warn("Failed to turn WiFi back on for service %s: %v", service, err)
+			}
+		} else {
+			logger.Debug("Service %s not found or failed: %v", service, err)
+		}
+	}
+
+	// Alternative: Try with interface names if service names failed
+	if !success {
+		logger.Info("Trying with interface names...")
+		networkInterface := getActiveNetworkInterface()
+		wifiInterfaces := []string{networkInterface, "en0", "en1"}
+
+		for _, iface := range wifiInterfaces {
+			logger.Debug("Trying WiFi interface: %s", iface)
+
+			if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", iface, "off"); err == nil {
+				time.Sleep(2 * time.Second)
+				if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", iface, "on"); err == nil {
+					logger.Info("WiFi reset successful via interface: %s", iface)
+					success = true
+					break
+				}
 			}
 		}
 	}
 
 	if !success {
-		return fmt.Errorf("Could not reset WiFi - interface not found")
+		return fmt.Errorf("could not reset WiFi - no working interface/service found")
 	}
 
 	return nil
@@ -660,9 +714,8 @@ func executeSudoCommand(command string, args ...string) error {
 	fullCmd := fmt.Sprintf("%s %v", command, args)
 	logger.Debug("executeSudoCommand: Attempting command: %s", fullCmd)
 
-	// First try without sudo to see if it works
-	cmd := exec.Command(command, args...)
-	output, err := cmd.CombinedOutput()
+	// First try without sudo to see if it works (with timeout)
+	output, err := runCommandWithTimeoutOutput(defaultCommandTimeout, command, args...)
 
 	if err == nil {
 		logger.Info("Command succeeded without sudo: %s", fullCmd)
@@ -697,9 +750,8 @@ func executeSudoCommand(command string, args ...string) error {
 func executeSudoShell(shellCmd string) error {
 	logger.Debug("executeSudoShell: Attempting shell command: %s", shellCmd)
 
-	// Try without sudo first
-	cmd := exec.Command("sh", "-c", shellCmd)
-	output, err := cmd.CombinedOutput()
+	// Try without sudo first (with timeout)
+	output, err := runShellWithTimeoutOutput(defaultCommandTimeout, shellCmd)
 
 	if err == nil {
 		logger.Info("Shell command succeeded without sudo: %s", shellCmd)
@@ -732,84 +784,147 @@ func executeSudoShell(shellCmd string) error {
 
 // Helper function to detect active network interface (Apple Silicon compatible)
 func getActiveNetworkInterface() string {
-	// Get active network interface
-	cmd := "route get default | grep interface | awk '{print $2}'"
-	output, err := exec.Command("sh", "-c", cmd).Output()
-	if err != nil {
-		// Fallback to common interfaces
-		interfaces := []string{"en0", "en1", "Wi-Fi", "Ethernet"}
-		for _, iface := range interfaces {
-			if err := exec.Command("networksetup", "-getinfo", iface).Run(); err == nil {
-				return iface
-			}
+	logger.Debug("Detecting active network interface")
+
+	// Method 1: Get default route interface
+	cmd := "route -n get default 2>/dev/null | grep 'interface:' | awk '{print $2}'"
+	output, err := runShellWithTimeoutOutput(shortCommandTimeout, cmd)
+	if err == nil && len(output) > 0 {
+		iface := strings.TrimSpace(string(output))
+		if iface != "" {
+			logger.Debug("Found interface via route: %s", iface)
+			return iface
 		}
-		return "en0" // Default fallback
 	}
-	return strings.TrimSpace(string(output))
+
+	// Method 2: Try common interface names
+	interfaces := []string{"en0", "en1", "en2"}
+	for _, iface := range interfaces {
+		// Check if interface is up
+		checkCmd := fmt.Sprintf("ifconfig %s 2>/dev/null | grep -q 'status: active'", iface)
+		if err := runShellWithTimeout(shortCommandTimeout, checkCmd); err == nil {
+			logger.Debug("Found active interface: %s", iface)
+			return iface
+		}
+	}
+
+	// Method 3: Try networksetup
+	services := []string{"Wi-Fi", "Ethernet", "en0", "en1"}
+	for _, service := range services {
+		if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-getinfo", service); err == nil {
+			logger.Debug("Found interface via networksetup: %s", service)
+			return service
+		}
+	}
+
+	// Final fallback
+	logger.Warn("Could not determine network interface, using default: en0")
+	return "en0"
 }
 
 func (m *Model) resetNetwork() error {
-	networkInterface := getActiveNetworkInterface()
+	logger.Info("Starting complete network reset")
 	success := 0
 
-	// Method 1: Use networksetup (no sudo required)
-	commands := [][]string{
-		{"networksetup", "-setairportpower", networkInterface, "off"},
-		{"networksetup", "-setairportpower", networkInterface, "on"},
-		{"networksetup", "-setdhcp", networkInterface},
+	// Step 1: Flush DNS first
+	logger.Info("Flushing DNS cache")
+	if err := m.flushDNS(); err == nil {
+		success++
 	}
 
-	for _, cmd := range commands {
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err == nil {
-			success++
+	// Step 2: Reset WiFi via service names (most reliable)
+	wifiServices := []string{"Wi-Fi", "WiFi"}
+	for _, service := range wifiServices {
+		logger.Debug("Trying to reset WiFi service: %s", service)
+		if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", service, "off"); err == nil {
+			time.Sleep(2 * time.Second)
+			if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", service, "on"); err == nil {
+				logger.Info("Successfully reset WiFi via service: %s", service)
+				success++
+
+				// Try to renew DHCP
+				if err := runCommandWithTimeout(defaultCommandTimeout, "networksetup", "-setdhcp", service); err == nil {
+					logger.Info("Renewed DHCP for: %s", service)
+					success++
+				}
+				break
+			}
 		}
 	}
 
-	// Method 2: Alternative WiFi reset
-	if success == 0 {
-		wifiCommands := [][]string{
-			{"networksetup", "-setairportpower", "Wi-Fi", "off"},
-			{"networksetup", "-setairportpower", "Wi-Fi", "on"},
-		}
-		for _, cmd := range wifiCommands {
-			if err := exec.Command(cmd[0], cmd[1:]...).Run(); err == nil {
+	// Step 3: Try via interface if service method didn't work
+	if success < 2 {
+		networkInterface := getActiveNetworkInterface()
+		logger.Debug("Trying to reset via interface: %s", networkInterface)
+
+		if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", networkInterface, "off"); err == nil {
+			time.Sleep(2 * time.Second)
+			if err := runCommandWithTimeout(shortCommandTimeout, "networksetup", "-setairportpower", networkInterface, "on"); err == nil {
+				logger.Info("Successfully reset WiFi via interface: %s", networkInterface)
 				success++
 			}
 		}
 	}
 
-	// Always try to flush DNS regardless
-	m.flushDNS()
-
 	if success == 0 {
-		return fmt.Errorf("Network reset may need admin privileges")
+		return fmt.Errorf("network reset failed - try checking Network settings manually")
 	}
 
+	logger.Info("Network reset completed with %d successful operations", success)
 	return nil
 }
 
 func (m *Model) fixBluetooth() error {
-	// Kill the Bluetooth daemon (requires sudo)
-	err1 := executeSudoCommand("pkill", "bluetoothd")
+	logger.Info("Starting Bluetooth reset")
 
-	// Remove user Bluetooth preferences
+	// Method 1: Kill and restart bluetoothd (modern approach)
+	logger.Info("Attempting to restart Bluetooth daemon")
+	err1 := executeSudoCommand("pkill", "-9", "bluetoothd")
+
+	// Give it time to restart automatically
+	if err1 == nil {
+		logger.Info("Bluetooth daemon killed, waiting for automatic restart")
+		time.Sleep(3 * time.Second)
+		return nil
+	}
+
+	// Method 2: Toggle Bluetooth via blueutil if available
+	logger.Info("Trying alternative Bluetooth toggle method")
+	toggleCmd := "blueutil -p 0 && sleep 2 && blueutil -p 1"
+	if err := runShellWithTimeout(defaultCommandTimeout, toggleCmd); err == nil {
+		logger.Info("Bluetooth toggled successfully via blueutil")
+		return nil
+	}
+
+	// Method 3: Remove preferences (user-level, no sudo needed)
 	homeDir, _ := os.UserHomeDir()
 	btPlist := filepath.Join(homeDir, "Library/Preferences/com.apple.Bluetooth.plist")
-	os.Remove(btPlist)
+	if _, err := os.Stat(btPlist); err == nil {
+		logger.Info("Removing Bluetooth preferences file")
+		os.Remove(btPlist)
+	}
 
-	// Restart Bluetooth daemon
-	err2 := executeSudoShell("launchctl load /System/Library/LaunchDaemons/com.apple.bluetoothd.plist")
-
-	if err1 != nil && err2 != nil {
-		return fmt.Errorf("Bluetooth restart requires admin privileges")
+	if err1 != nil {
+		return fmt.Errorf("bluetooth reset requires admin privileges")
 	}
 
 	return nil
 }
 
 func (m *Model) fixAudio() error {
-	// The proper way to fix audio issues is to restart the audio daemon
-	return executeSudoCommand("killall", "coreaudiod")
+	logger.Info("Starting audio system reset")
+
+	// Kill Core Audio daemon (requires sudo, auto-restarts)
+	err := executeSudoCommand("killall", "-9", "coreaudiod")
+	if err != nil {
+		logger.Error("Failed to restart audio daemon: %v", err)
+		return fmt.Errorf("audio reset requires admin privileges")
+	}
+
+	logger.Info("Core Audio daemon restarted")
+	// Give it a moment to restart
+	time.Sleep(2 * time.Second)
+	return nil
 }
 
 func (m *Model) resetSMC() error {
@@ -824,68 +939,125 @@ func (m *Model) resetNVRAM() error {
 }
 
 func (m *Model) fixSpotlight() error {
+	logger.Info("Starting Spotlight reindex")
+
 	// System-wide Spotlight reindexing requires sudo
+	logger.Info("Disabling Spotlight indexing")
 	err1 := executeSudoCommand("mdutil", "-i", "off", "/")
 	if err1 != nil {
-		return err1
+		logger.Error("Failed to disable Spotlight: %v", err1)
+		return fmt.Errorf("spotlight reset requires admin privileges")
 	}
 
+	logger.Info("Erasing Spotlight index")
 	err2 := executeSudoCommand("mdutil", "-E", "/")
 	if err2 != nil {
-		return err2
+		logger.Warn("Failed to erase index, continuing anyway: %v", err2)
 	}
 
-	return executeSudoCommand("mdutil", "-i", "on", "/")
+	// Wait a moment before re-enabling
+	time.Sleep(2 * time.Second)
+
+	logger.Info("Re-enabling Spotlight indexing")
+	err3 := executeSudoCommand("mdutil", "-i", "on", "/")
+	if err3 != nil {
+		logger.Error("Failed to re-enable Spotlight: %v", err3)
+		return err3
+	}
+
+	logger.Info("Spotlight reindex started successfully")
+	return nil
 }
 
 func (m *Model) fixTimeMachine() error {
+	logger.Info("Starting Time Machine optimization")
 	success := 0
 
-	// Method 1: Try tmutil without sudo first
-	if err := exec.Command("tmutil", "destinationinfo").Run(); err == nil {
+	// Method 1: Verify Time Machine status (works without sudo)
+	logger.Info("Checking Time Machine status")
+	if err := runCommandWithTimeout(shortCommandTimeout, "tmutil", "status"); err == nil {
+		logger.Info("Time Machine is accessible")
 		success++
 	}
 
-	// Method 2: Check Time Machine status
-	if err := exec.Command("tmutil", "status").Run(); err == nil {
+	// Method 2: List destinations (works without sudo)
+	if err := runCommandWithTimeout(shortCommandTimeout, "tmutil", "destinationinfo"); err == nil {
+		logger.Info("Time Machine destinations accessible")
 		success++
 	}
 
-	// Method 3: Use AppleScript to open Time Machine preferences
-	script := `osascript -e 'tell application "System Preferences"
-		reveal pane "com.apple.preference.TimeMachine"
-		activate
-	end tell'`
-	if err := exec.Command("sh", "-c", script).Run(); err == nil {
-		success++
-	}
-
-	// Method 4: Clear Time Machine preferences (user level)
+	// Method 3: Clear Time Machine preferences (user level only, no System Preferences opening)
 	homeDir, _ := os.UserHomeDir()
 	tmPrefs := filepath.Join(homeDir, "Library/Preferences/com.apple.TimeMachine.plist")
 	if _, err := os.Stat(tmPrefs); err == nil {
-		os.Remove(tmPrefs)
+		logger.Info("Removing Time Machine preferences file")
+		if err := os.Remove(tmPrefs); err == nil {
+			success++
+		}
+	}
+
+	// Method 4: Try to start a manual backup (requires destination configured)
+	logger.Info("Attempting to trigger Time Machine backup check")
+	if err := runCommandWithTimeout(shortCommandTimeout, "tmutil", "startbackup", "-b"); err == nil {
+		logger.Info("Time Machine backup check initiated")
 		success++
 	}
 
 	if success == 0 {
-		return fmt.Errorf("Time Machine management needs admin privileges")
+		return fmt.Errorf("time Machine is not configured or requires admin privileges")
 	}
 
+	logger.Info("Time Machine optimization completed (%d operations successful)", success)
 	return nil
 }
 
 func (m *Model) fixPermissions() error {
+	logger.Info("Starting permissions repair")
 	homeDir, _ := os.UserHomeDir()
+	success := 0
 
-	// Fix home directory permissions (be more careful with recursive chmod)
-	exec.Command("sh", "-c", fmt.Sprintf("chmod 755 %s", homeDir)).Run()
+	// Fix home directory permissions (non-recursive, safer)
+	logger.Info("Fixing home directory permissions")
+	chmodCmd := fmt.Sprintf("chmod 755 %s", homeDir)
+	if err := runShellWithTimeout(shortCommandTimeout, chmodCmd); err == nil {
+		logger.Info("Home directory permissions fixed")
+		success++
+	} else {
+		logger.Warn("Failed to fix home permissions: %v", err)
+	}
 
-	// Repair disk permissions (note: this command may not work on newer macOS)
-	exec.Command("diskutil", "repairPermissions", "/").Run()
+	// Fix common subdirectories
+	commonDirs := []string{
+		filepath.Join(homeDir, "Desktop"),
+		filepath.Join(homeDir, "Documents"),
+		filepath.Join(homeDir, "Downloads"),
+	}
 
-	// Alternative: First Aid on disk
-	return exec.Command("diskutil", "verifyDisk", "/").Run()
+	for _, dir := range commonDirs {
+		if _, err := os.Stat(dir); err == nil {
+			chmodCmd := fmt.Sprintf("chmod 755 %s", dir)
+			if err := runShellWithTimeout(shortCommandTimeout, chmodCmd); err == nil {
+				logger.Debug("Fixed permissions for: %s", dir)
+				success++
+			}
+		}
+	}
+
+	// Verify disk (read-only, safe operation)
+	logger.Info("Verifying disk permissions")
+	if err := runCommandWithTimeout(defaultCommandTimeout, "diskutil", "verifyVolume", "/"); err == nil {
+		logger.Info("Disk verification completed")
+		success++
+	} else {
+		logger.Warn("Disk verification failed: %v", err)
+	}
+
+	if success == 0 {
+		return fmt.Errorf("permission repair failed")
+	}
+
+	logger.Info("Permissions repair completed (%d operations successful)", success)
+	return nil
 }
 
 // emptyTrashInternal performs robust trash clean with multiple fallbacks.
@@ -898,68 +1070,67 @@ func emptyTrashInternal() error {
 
 	if _, err := os.Stat(trashPath); os.IsNotExist(err) {
 		logger.Error("Trash directory not found: %s", trashPath)
-		return fmt.Errorf("Trash directory not found")
+		return fmt.Errorf("trash directory not found")
 	}
 
-	// Counting helper
+	// Count items before (with timeout)
 	countCmd := fmt.Sprintf("find %s -mindepth 1 2>/dev/null | wc -l", trashPath)
-	beforeOutput, _ := exec.Command("sh", "-c", countCmd).Output()
+	beforeOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
 	var itemsBefore int
 	fmt.Sscanf(strings.TrimSpace(string(beforeOutput)), "%d", &itemsBefore)
 	logger.Info("Items in trash before cleanup: %d", itemsBefore)
 
+	if itemsBefore == 0 {
+		logger.Info("Trash is already empty")
+		return nil
+	}
+
 	success := false
 
-	// 0) Finder AppleScript first
-	asCmd := `osascript -e 'tell application "Finder" to empty trash'`
-	if out, err := exec.Command("sh", "-c", asCmd).CombinedOutput(); err == nil {
-		logger.Info("Finder emptied trash successfully")
+	// Method 1: Direct rm -rf (fastest, works without user interaction)
+	logger.Info("Attempting direct removal...")
+	chflagsCmd := fmt.Sprintf("chflags -R nouchg,noschg,nouappnd,noschg %s/* 2>/dev/null || true", trashPath)
+	runShellWithTimeout(shortCommandTimeout, chflagsCmd)
+
+	rmCmd := fmt.Sprintf("rm -rf %s/* %s/.[!.]* 2>/dev/null || true", trashPath, trashPath)
+	if err := runShellWithTimeout(defaultCommandTimeout, rmCmd); err == nil {
+		logger.Info("Direct removal completed")
 		success = true
 	} else {
-		logger.Warn("Finder AppleScript failed: %v", err)
-		_ = out
+		logger.Warn("Direct rm failed: %v", err)
 	}
 
-	// 1) Remove flags and delete
+	// Method 2: Use find with deletion (handles stubborn files)
 	if !success {
-		chflagsCmd := fmt.Sprintf("chflags -R nouchg,noschg %s/* 2>/dev/null", trashPath)
-		_ = exec.Command("sh", "-c", chflagsCmd).Run()
+		logger.Info("Attempting find -delete...")
+		// First clear flags
+		findFlagsCmd := fmt.Sprintf("find %s -mindepth 1 -exec chflags nouchg,nouappnd {} + 2>/dev/null || true", trashPath)
+		runShellWithTimeout(defaultCommandTimeout, findFlagsCmd)
 
-		rmCmd := fmt.Sprintf("rm -rf %s/* 2>/dev/null", trashPath)
-		if out, err := exec.Command("sh", "-c", rmCmd).CombinedOutput(); err == nil {
-			logger.Info("Removed trash contents with rm")
+		// Then delete
+		findDelCmd := fmt.Sprintf("find %s -mindepth 1 -delete 2>/dev/null", trashPath)
+		if err := runShellWithTimeout(defaultCommandTimeout, findDelCmd); err == nil {
+			logger.Info("Find deletion completed")
 			success = true
 		} else {
-			logger.Warn("rm failed: %v", err)
-			_ = out
+			logger.Warn("Find deletion failed: %v", err)
 		}
 	}
 
-	// 2) Use find to delete with flag clearing
+	// Method 3: Try with sudo for locked files
 	if !success {
-		findCmd := fmt.Sprintf("find %s -mindepth 1 -exec chflags -R nouchg,noschg {} + -delete 2>/dev/null", trashPath)
-		if out, err := exec.Command("sh", "-c", findCmd).CombinedOutput(); err == nil {
-			logger.Info("Deleted trash contents with find")
-			success = true
-		} else {
-			logger.Warn("find -delete failed: %v", err)
-			_ = out
-		}
-	}
-
-	// 3) As last resort, try sudo removal
-	if !success {
-		sudoCmd := fmt.Sprintf("chflags -R nouchg,noschg %s/* 2>/dev/null; rm -rf %s/* 2>/dev/null", trashPath, trashPath)
+		logger.Info("Attempting sudo removal for locked files...")
+		sudoCmd := fmt.Sprintf("chflags -R nouchg,nouappnd %s/* 2>/dev/null; rm -rf %s/* %s/.[!.]* 2>/dev/null", trashPath, trashPath, trashPath)
 		if err := executeSudoShell(sudoCmd); err == nil {
 			logger.Info("Sudo removal succeeded")
 			success = true
 		} else {
-			logger.Error("Sudo removal failed: %v", err)
+			logger.Warn("Sudo removal failed: %v", err)
 		}
 	}
 
-	// VERIFY
-	afterOutput, _ := exec.Command("sh", "-c", countCmd).Output()
+	// Verify results
+	afterOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
 	var itemsAfter int
 	fmt.Sscanf(strings.TrimSpace(string(afterOutput)), "%d", &itemsAfter)
 	logger.Info("Items in trash after cleanup: %d", itemsAfter)
@@ -968,11 +1139,13 @@ func emptyTrashInternal() error {
 		logger.Info("=== Empty Trash SUCCEEDED ===")
 		return nil
 	}
-	if itemsBefore == 0 {
-		logger.Warn("Trash was already empty")
-		return nil
+
+	if itemsAfter < itemsBefore {
+		logger.Info("Partially cleaned: removed %d items, %d remain", itemsBefore-itemsAfter, itemsAfter)
+		return fmt.Errorf("partially cleaned: %d items remain (some may be in use)", itemsAfter)
 	}
-	return fmt.Errorf("Failed to empty trash: %d items remain", itemsAfter)
+
+	return fmt.Errorf("failed to empty trash: %d items remain", itemsAfter)
 }
 
 // EmptyTrash exposes the operation for CLI usage.
@@ -981,11 +1154,51 @@ func EmptyTrash() error { return emptyTrashInternal() }
 func (m *Model) emptyTrash() error { return emptyTrashInternal() }
 
 func (m *Model) cleanDownloads() error {
+	logger.Info("Starting Downloads cleanup")
 	homeDir, _ := os.UserHomeDir()
 	downloadsPath := filepath.Join(homeDir, "Downloads")
 
-	// Remove files older than 30 days
-	return exec.Command("find", downloadsPath, "-mtime", "+30", "-delete").Run()
+	// Verify Downloads directory exists
+	if _, err := os.Stat(downloadsPath); os.IsNotExist(err) {
+		logger.Error("Downloads directory not found: %s", downloadsPath)
+		return fmt.Errorf("downloads directory not found")
+	}
+
+	// Count files before cleanup
+	countCmd := fmt.Sprintf("find %s -type f -mtime +30 2>/dev/null | wc -l", downloadsPath)
+	beforeOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
+	var filesBefore int
+	fmt.Sscanf(strings.TrimSpace(string(beforeOutput)), "%d", &filesBefore)
+	logger.Info("Files older than 30 days in Downloads: %d", filesBefore)
+
+	if filesBefore == 0 {
+		logger.Info("No old files to clean in Downloads")
+		return nil
+	}
+
+	// Remove files older than 30 days (with timeout to prevent hanging)
+	logger.Info("Removing files older than 30 days from Downloads")
+	deleteCmd := fmt.Sprintf("find %s -type f -mtime +30 -delete 2>/dev/null", downloadsPath)
+	err := runShellWithTimeout(defaultCommandTimeout, deleteCmd)
+
+	if err != nil {
+		logger.Error("Failed to clean Downloads: %v", err)
+		return fmt.Errorf("failed to clean downloads: %v", err)
+	}
+
+	// Count files after cleanup
+	afterOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
+	var filesAfter int
+	fmt.Sscanf(strings.TrimSpace(string(afterOutput)), "%d", &filesAfter)
+
+	removed := filesBefore - filesAfter
+	logger.Info("Removed %d old files from Downloads", removed)
+
+	if removed == 0 && filesBefore > 0 {
+		return fmt.Errorf("could not remove old files (they may be in use)")
+	}
+
+	return nil
 }
 
 func (m *Model) purgeMemory() error {
@@ -1005,4 +1218,68 @@ func (m *Model) tickSpinner() tea.Cmd {
 	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
 		return spinnerTickMsg{}
 	})
+}
+
+// Helper function to run command with timeout
+func runCommandWithTimeout(timeout time.Duration, name string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Warn("Command timed out after %v: %s %v", timeout, name, args)
+		return fmt.Errorf("command timed out")
+	}
+
+	return err
+}
+
+// Helper function to run command with timeout and get output
+func runCommandWithTimeoutOutput(timeout time.Duration, name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	output, err := cmd.CombinedOutput()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Warn("Command timed out after %v: %s %v", timeout, name, args)
+		return nil, fmt.Errorf("command timed out")
+	}
+
+	return output, err
+}
+
+// Helper function to run shell command with timeout
+func runShellWithTimeout(timeout time.Duration, shellCmd string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", shellCmd)
+	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Warn("Shell command timed out after %v: %s", timeout, shellCmd)
+		return fmt.Errorf("command timed out")
+	}
+
+	return err
+}
+
+// Helper function to run shell command with timeout and get output
+func runShellWithTimeoutOutput(timeout time.Duration, shellCmd string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", shellCmd)
+	output, err := cmd.CombinedOutput()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Warn("Shell command timed out after %v: %s", timeout, shellCmd)
+		return nil, fmt.Errorf("command timed out")
+	}
+
+	return output, err
 }
