@@ -15,7 +15,8 @@ export default defineConfig({
       "script",
       {
         defer: "",
-        src: "https://yaat.io/s/yaat.js"
+        "data-site": "site_207ed1aa913a3eac",
+        src: "https://light.yaat.io/s.js",
       },
     ],
   ],
