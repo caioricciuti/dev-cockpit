@@ -361,78 +361,6 @@ func (m *Model) renderSimpleList() string {
 	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
-func (m *Model) renderCategories(width int) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#333")).
-		Padding(1, 1).
-		Width(width)
-
-	itemStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888"))
-
-	activeStyle := itemStyle.Copy().
-		Foreground(lipgloss.Color("#00D9FF")).
-		Bold(true)
-
-	var lines []string
-	for i, category := range m.categories {
-		count := len(m.grouped[category])
-		label := fmt.Sprintf("%s (%d)", category, count)
-		if i == m.categoryIndex {
-			lines = append(lines, activeStyle.Render("▶ "+label))
-		} else {
-			lines = append(lines, itemStyle.Render("  "+label))
-		}
-	}
-
-	return boxStyle.Render(strings.Join(lines, "\n"))
-}
-
-func (m *Model) renderActions(width int) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#00D9FF")).
-		Padding(1, 2).
-		Width(width)
-
-	itemStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#DDD"))
-
-	activeStyle := itemStyle.Copy().
-		Foreground(lipgloss.Color("#00D9FF")).
-		Bold(true)
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888"))
-
-	actions := m.visibleActions()
-	if len(actions) == 0 {
-		return boxStyle.Render("No actions available for this category.")
-	}
-
-	var builder strings.Builder
-	for i, action := range actions {
-		name := action.Name
-		if action.RequiresSudo {
-			name = "🔒 " + name
-		}
-
-		if i == m.actionIndex {
-			builder.WriteString(activeStyle.Render("▶ " + name))
-			builder.WriteString("\n")
-			builder.WriteString(descStyle.Render("   " + action.Description))
-		} else {
-			builder.WriteString(itemStyle.Render("  " + name))
-		}
-		if i < len(actions)-1 {
-			builder.WriteString("\n")
-		}
-	}
-
-	return boxStyle.Render(builder.String())
-}
-
 func (m *Model) rebuildGroups() {
 	groups := make(map[string][]Action)
 
@@ -451,38 +379,18 @@ func (m *Model) rebuildGroups() {
 	m.grouped = groups
 }
 
-func (m *Model) visibleActions() []Action {
-	if len(m.categories) == 0 {
-		return nil
-	}
-	category := m.categories[m.categoryIndex]
-	if category == "All" {
-		return m.grouped["All"]
-	}
-	return m.grouped[category]
-}
-
 func (m *Model) clampSelection() {
-	actions := m.visibleActions()
-	if len(actions) == 0 {
+	total := len(m.actions)
+	if total == 0 {
 		m.actionIndex = 0
 		return
 	}
 	if m.actionIndex < 0 {
 		m.actionIndex = 0
 	}
-	if m.actionIndex >= len(actions) {
-		m.actionIndex = len(actions) - 1
+	if m.actionIndex >= total {
+		m.actionIndex = total - 1
 	}
-}
-
-func (m *Model) shiftCategory(delta int) {
-	total := len(m.categories)
-	if total == 0 {
-		return
-	}
-	m.categoryIndex = (m.categoryIndex + delta + total) % total
-	m.actionIndex = 0
 }
 
 // Title returns the module title
@@ -1018,8 +926,7 @@ func (m *Model) fixPermissions() error {
 
 	// Fix home directory permissions (non-recursive, safer)
 	logger.Info("Fixing home directory permissions")
-	chmodCmd := fmt.Sprintf("chmod 755 %s", homeDir)
-	if err := runShellWithTimeout(shortCommandTimeout, chmodCmd); err == nil {
+	if err := runCommandWithTimeout(shortCommandTimeout, "chmod", "755", homeDir); err == nil {
 		logger.Info("Home directory permissions fixed")
 		success++
 	} else {
@@ -1035,8 +942,7 @@ func (m *Model) fixPermissions() error {
 
 	for _, dir := range commonDirs {
 		if _, err := os.Stat(dir); err == nil {
-			chmodCmd := fmt.Sprintf("chmod 755 %s", dir)
-			if err := runShellWithTimeout(shortCommandTimeout, chmodCmd); err == nil {
+			if err := runCommandWithTimeout(shortCommandTimeout, "chmod", "755", dir); err == nil {
 				logger.Debug("Fixed permissions for: %s", dir)
 				success++
 			}
@@ -1074,10 +980,7 @@ func emptyTrashInternal() error {
 	}
 
 	// Count items before (with timeout)
-	countCmd := fmt.Sprintf("find %s -mindepth 1 2>/dev/null | wc -l", trashPath)
-	beforeOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
-	var itemsBefore int
-	fmt.Sscanf(strings.TrimSpace(string(beforeOutput)), "%d", &itemsBefore)
+	itemsBefore := countDirEntries(trashPath)
 	logger.Info("Items in trash before cleanup: %d", itemsBefore)
 
 	if itemsBefore == 0 {
@@ -1087,29 +990,27 @@ func emptyTrashInternal() error {
 
 	success := false
 
-	// Method 1: Direct rm -rf (fastest, works without user interaction)
+	// Method 1: Direct removal via os and exec with proper arguments (no shell interpolation)
 	logger.Info("Attempting direct removal...")
-	chflagsCmd := fmt.Sprintf("chflags -R nouchg,noschg,nouappnd,noschg %s/* 2>/dev/null || true", trashPath)
-	runShellWithTimeout(shortCommandTimeout, chflagsCmd)
+	// Clear file flags first
+	_ = runCommandWithTimeout(shortCommandTimeout, "chflags", "-R", "nouchg,noschg,nouappnd", trashPath)
 
-	rmCmd := fmt.Sprintf("rm -rf %s/* %s/.[!.]* 2>/dev/null || true", trashPath, trashPath)
-	if err := runShellWithTimeout(defaultCommandTimeout, rmCmd); err == nil {
+	// Remove contents entry by entry to avoid shell injection
+	if err := removeDirectoryContents(trashPath, defaultCommandTimeout); err == nil {
 		logger.Info("Direct removal completed")
 		success = true
 	} else {
-		logger.Warn("Direct rm failed: %v", err)
+		logger.Warn("Direct removal failed: %v", err)
 	}
 
 	// Method 2: Use find with deletion (handles stubborn files)
 	if !success {
 		logger.Info("Attempting find -delete...")
-		// First clear flags
-		findFlagsCmd := fmt.Sprintf("find %s -mindepth 1 -exec chflags nouchg,nouappnd {} + 2>/dev/null || true", trashPath)
-		runShellWithTimeout(defaultCommandTimeout, findFlagsCmd)
+		// Clear flags with proper args
+		_ = runCommandWithTimeout(defaultCommandTimeout, "find", trashPath, "-mindepth", "1", "-exec", "chflags", "nouchg,nouappnd", "{}", "+")
 
-		// Then delete
-		findDelCmd := fmt.Sprintf("find %s -mindepth 1 -delete 2>/dev/null", trashPath)
-		if err := runShellWithTimeout(defaultCommandTimeout, findDelCmd); err == nil {
+		// Delete with proper args
+		if err := runCommandWithTimeout(defaultCommandTimeout, "find", trashPath, "-mindepth", "1", "-delete"); err == nil {
 			logger.Info("Find deletion completed")
 			success = true
 		} else {
@@ -1120,19 +1021,19 @@ func emptyTrashInternal() error {
 	// Method 3: Try with sudo for locked files
 	if !success {
 		logger.Info("Attempting sudo removal for locked files...")
-		sudoCmd := fmt.Sprintf("chflags -R nouchg,nouappnd %s/* 2>/dev/null; rm -rf %s/* %s/.[!.]* 2>/dev/null", trashPath, trashPath, trashPath)
-		if err := executeSudoShell(sudoCmd); err == nil {
-			logger.Info("Sudo removal succeeded")
-			success = true
-		} else {
-			logger.Warn("Sudo removal failed: %v", err)
+		if err := executeSudoCommand("chflags", "-R", "nouchg,nouappnd", trashPath); err == nil {
+			if err := removeDirectoryContents(trashPath, defaultCommandTimeout); err == nil {
+				logger.Info("Sudo removal succeeded")
+				success = true
+			}
+		}
+		if !success {
+			logger.Warn("Sudo removal failed")
 		}
 	}
 
 	// Verify results
-	afterOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
-	var itemsAfter int
-	fmt.Sscanf(strings.TrimSpace(string(afterOutput)), "%d", &itemsAfter)
+	itemsAfter := countDirEntries(trashPath)
 	logger.Info("Items in trash after cleanup: %d", itemsAfter)
 
 	if itemsAfter == 0 {
@@ -1164,11 +1065,9 @@ func (m *Model) cleanDownloads() error {
 		return fmt.Errorf("downloads directory not found")
 	}
 
-	// Count files before cleanup
-	countCmd := fmt.Sprintf("find %s -type f -mtime +30 2>/dev/null | wc -l", downloadsPath)
-	beforeOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
-	var filesBefore int
-	fmt.Sscanf(strings.TrimSpace(string(beforeOutput)), "%d", &filesBefore)
+	// Count files before cleanup using exec.Command with proper arguments
+	beforeOutput, _ := runCommandWithTimeoutOutput(shortCommandTimeout, "find", downloadsPath, "-type", "f", "-mtime", "+30")
+	filesBefore := countLines(string(beforeOutput))
 	logger.Info("Files older than 30 days in Downloads: %d", filesBefore)
 
 	if filesBefore == 0 {
@@ -1178,8 +1077,7 @@ func (m *Model) cleanDownloads() error {
 
 	// Remove files older than 30 days (with timeout to prevent hanging)
 	logger.Info("Removing files older than 30 days from Downloads")
-	deleteCmd := fmt.Sprintf("find %s -type f -mtime +30 -delete 2>/dev/null", downloadsPath)
-	err := runShellWithTimeout(defaultCommandTimeout, deleteCmd)
+	err := runCommandWithTimeout(defaultCommandTimeout, "find", downloadsPath, "-type", "f", "-mtime", "+30", "-delete")
 
 	if err != nil {
 		logger.Error("Failed to clean Downloads: %v", err)
@@ -1187,9 +1085,8 @@ func (m *Model) cleanDownloads() error {
 	}
 
 	// Count files after cleanup
-	afterOutput, _ := runShellWithTimeoutOutput(shortCommandTimeout, countCmd)
-	var filesAfter int
-	fmt.Sscanf(strings.TrimSpace(string(afterOutput)), "%d", &filesAfter)
+	afterOutput, _ := runCommandWithTimeoutOutput(shortCommandTimeout, "find", downloadsPath, "-type", "f", "-mtime", "+30")
+	filesAfter := countLines(string(afterOutput))
 
 	removed := filesBefore - filesAfter
 	logger.Info("Removed %d old files from Downloads", removed)
@@ -1218,6 +1115,41 @@ func (m *Model) tickSpinner() tea.Cmd {
 	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
 		return spinnerTickMsg{}
 	})
+}
+
+// countDirEntries counts entries in a directory without shell interpolation
+func countDirEntries(path string) int {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return 0
+	}
+	return len(entries)
+}
+
+// removeDirectoryContents removes all entries inside a directory without shell interpolation
+func removeDirectoryContents(dirPath string, timeout time.Duration) error {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(dirPath, entry.Name())
+		if err := os.RemoveAll(entryPath); err != nil {
+			// Fallback to rm -rf with proper arguments (no shell)
+			_ = runCommandWithTimeout(timeout, "rm", "-rf", entryPath)
+		}
+	}
+	return nil
+}
+
+// countLines counts non-empty lines in a string
+func countLines(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	return len(strings.Split(s, "\n"))
 }
 
 // Helper function to run command with timeout

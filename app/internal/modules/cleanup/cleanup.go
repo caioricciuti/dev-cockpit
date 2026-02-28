@@ -373,20 +373,23 @@ func (m *Model) getTotalSize() uint64 {
 }
 
 func (m *Model) scanSizes() tea.Cmd {
+	// Snapshot targets to avoid mutating shared state from a goroutine
+	targets := make([]CleanupTarget, len(m.targets))
+	copy(targets, m.targets)
+
 	return func() tea.Msg {
-		for i := range m.targets {
+		for i := range targets {
 			// Check if path exists
-			if _, err := os.Stat(m.targets[i].Path); os.IsNotExist(err) {
-				m.targets[i].Size = 0
+			if _, err := os.Stat(targets[i].Path); os.IsNotExist(err) {
+				targets[i].Size = 0
 				continue
 			}
 
 			// Get size with timeout
-			size := getSizeWithTimeout(m.targets[i].Path, m.targets[i].Timeout)
-			m.targets[i].Size = size
+			targets[i].Size = getSizeWithTimeout(targets[i].Path, targets[i].Timeout)
 		}
 
-		return scanCompleteMsg{targets: m.targets}
+		return scanCompleteMsg{targets: targets}
 	}
 }
 
@@ -447,28 +450,15 @@ func getSizeWithTimeout(path string, timeout time.Duration) uint64 {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	done := make(chan uint64)
-
-	go func() {
-		cmd := exec.Command("du", "-sk", path)
-		output, err := cmd.Output()
-		if err != nil {
-			done <- 0
-			return
-		}
-
-		var kb uint64
-		fmt.Sscanf(string(output), "%d", &kb)
-		done <- kb * 1024
-	}()
-
-	select {
-	case size := <-done:
-		return size
-	case <-ctx.Done():
-		// Timeout - return 0
+	cmd := exec.CommandContext(ctx, "du", "-sk", path)
+	output, err := cmd.Output()
+	if err != nil {
 		return 0
 	}
+
+	var kb uint64
+	fmt.Sscanf(string(output), "%d", &kb)
+	return kb * 1024
 }
 
 // cleanTarget removes all contents of a directory
@@ -476,15 +466,23 @@ func cleanTarget(path string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Use rm -rf to clean the directory contents
-	cmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("rm -rf %s/* 2>/dev/null", path))
-	err := cmd.Run()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("cleanup timed out after 60 seconds")
+	// Read directory entries and remove each one individually to avoid shell injection
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %w", err)
 	}
 
-	return err
+	for _, entry := range entries {
+		entryPath := filepath.Join(path, entry.Name())
+		cmd := exec.CommandContext(ctx, "rm", "-rf", entryPath)
+		_ = cmd.Run() // Best-effort removal of each entry
+
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("cleanup timed out after 60 seconds")
+		}
+	}
+
+	return nil
 }
 
 // formatBytes formats bytes into human-readable format

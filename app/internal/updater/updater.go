@@ -9,7 +9,6 @@ import (
 
 // Colors for terminal output
 const (
-	colorRed    = "\033[0;31m"
 	colorGreen  = "\033[0;32m"
 	colorYellow = "\033[1;33m"
 	colorBlue   = "\033[0;34m"
@@ -116,10 +115,12 @@ func printBanner() {
 }
 
 func printCompletion(version string) {
+	msg := fmt.Sprintf("  Dev Cockpit updated to %s!  ", version)
+	border := strings.Repeat("═", len(msg))
 	fmt.Println()
-	fmt.Printf("%s╔════════════════════════════════════════════╗%s\n", colorGreen, colorNC)
-	fmt.Printf("%s║  Dev Cockpit updated to %s! 🚀         ║%s\n", colorGreen, version, colorNC)
-	fmt.Printf("%s╚════════════════════════════════════════════╝%s\n", colorGreen, colorNC)
+	fmt.Printf("%s╔%s╗%s\n", colorGreen, border, colorNC)
+	fmt.Printf("%s║%s║%s\n", colorGreen, msg, colorNC)
+	fmt.Printf("%s╚%s╝%s\n", colorGreen, border, colorNC)
 	fmt.Println()
 	fmt.Println("Run 'devcockpit --version' to verify")
 	fmt.Println()
@@ -146,8 +147,4 @@ func printSuccess(msg string) {
 
 func printWarning(msg string) {
 	fmt.Printf("%s⚠%s %s\n", colorYellow, colorNC, msg)
-}
-
-func printError(msg string) {
-	fmt.Printf("%s✗%s %s\n", colorRed, colorNC, msg)
 }

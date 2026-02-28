@@ -341,13 +341,6 @@ func (m *Model) renderAdvancedMetrics() string {
 	return lipgloss.JoinVertical(lipgloss.Left, insightLines...)
 }
 
-func (m *Model) getBoxColor(index int) lipgloss.Color {
-	if index == m.selectedMetric {
-		return lipgloss.Color("#00D9FF")
-	}
-	return lipgloss.Color("#444")
-}
-
 func (m *Model) updateSystemInfo() {
 	info, _ := host.Info()
 	if info != nil {
@@ -711,12 +704,16 @@ func (m *Model) fetchMetrics() tea.Cmd {
 		cpuPercent, _ := cpu.Percent(time.Second, true)
 
 		// Fetch Memory
-		memInfo, _ := mem.VirtualMemory()
-		memPercent := memInfo.UsedPercent
+		var memPercent float64
+		if memInfo, err := mem.VirtualMemory(); err == nil && memInfo != nil {
+			memPercent = memInfo.UsedPercent
+		}
 
 		// Fetch Disk
-		diskInfo, _ := disk.Usage("/")
-		diskPercent := diskInfo.UsedPercent
+		var diskPercent float64
+		if diskInfo, err := disk.Usage("/"); err == nil && diskInfo != nil {
+			diskPercent = diskInfo.UsedPercent
+		}
 
 		// Fetch Network
 		netInfo, _ := net.IOCounters(false)

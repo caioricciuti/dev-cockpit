@@ -2,9 +2,11 @@ package docker
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
@@ -82,6 +84,8 @@ func (m *Model) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 	case actionMsg:
 		m.output = msg.note
 		m.runningCmd = false
+		// Auto-refresh container list after an action
+		return m, m.refresh()
 	}
 	return m, nil
 }
@@ -155,7 +159,9 @@ func (m *Model) refresh() tea.Cmd {
 		if _, err := exec.LookPath("docker"); err != nil {
 			return containersMsg{ok: false, note: "docker CLI not found"}
 		}
-		out, err := exec.Command("docker", "ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}").Output()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "docker", "ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}").Output()
 		if err != nil {
 			return containersMsg{ok: false, note: "Docker daemon not reachable"}
 		}
@@ -179,16 +185,17 @@ func (m *Model) refresh() tea.Cmd {
 func (m *Model) toggleStartStop(c Container) tea.Cmd {
 	m.runningCmd = true
 	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 		var cmd *exec.Cmd
 		if c.State == "running" {
-			cmd = exec.Command("docker", "stop", c.ID)
+			cmd = exec.CommandContext(ctx, "docker", "stop", c.ID)
 		} else {
-			cmd = exec.Command("docker", "start", c.ID)
+			cmd = exec.CommandContext(ctx, "docker", "start", c.ID)
 		}
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return actionMsg{note: fmt.Sprintf("Error: %v: %s", err, string(out))}
 		}
-		// Refresh after action
 		return actionMsg{note: fmt.Sprintf("Toggled %s", c.Name)}
 	}
 }
@@ -196,7 +203,9 @@ func (m *Model) toggleStartStop(c Container) tea.Cmd {
 func (m *Model) tailLogs(c Container) tea.Cmd {
 	m.runningCmd = true
 	return func() tea.Msg {
-		cmd := exec.Command("docker", "logs", "--tail", "50", c.ID)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "docker", "logs", "--tail", "50", c.ID)
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {
 			return actionMsg{note: err.Error()}
