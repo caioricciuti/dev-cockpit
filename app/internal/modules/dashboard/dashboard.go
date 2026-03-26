@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/caioricciuti/dev-cockpit/internal/config"
+	"github.com/caioricciuti/dev-cockpit/internal/storage"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -16,6 +17,17 @@ import (
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+)
+
+// ViewMode for switching between live and historical views
+type ViewMode int
+
+const (
+	ViewLive    ViewMode = iota
+	ViewHist1h
+	ViewHist6h
+	ViewHist24h
+	ViewHist7d
 )
 
 // Model represents the dashboard state
@@ -49,16 +61,24 @@ type Model struct {
 	// UI state
 	selectedMetric int
 	showDetails    bool
+
+	// Historical views
+	store      *storage.Store
+	activeView ViewMode
+	histData   []storage.MetricSnapshot
+	storeCount int // counter for 10s store tick
 }
 
 // New creates a new dashboard module
-func New(cfg *config.Config) *Model {
+func New(cfg *config.Config, store *storage.Store) *Model {
 	m := &Model{
 		config:         cfg,
 		cpuHistory:     make([]float64, 60), // 60 seconds of history
 		memoryHistory:  make([]float64, 60),
 		diskHistory:    make([]float64, 60),
 		selectedMetric: 0,
+		store:          store,
+		activeView:     ViewLive,
 	}
 
 	// Initialize system info
@@ -84,6 +104,20 @@ func (m *Model) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "1":
+			m.activeView = ViewLive
+		case "2":
+			m.activeView = ViewHist1h
+			return m, m.fetchHistorical(time.Hour)
+		case "3":
+			m.activeView = ViewHist6h
+			return m, m.fetchHistorical(6 * time.Hour)
+		case "4":
+			m.activeView = ViewHist24h
+			return m, m.fetchHistorical(24 * time.Hour)
+		case "5":
+			m.activeView = ViewHist7d
+			return m, m.fetchHistorical(7 * 24 * time.Hour)
 		case "up", "k":
 			m.selectedMetric--
 			if m.selectedMetric < 0 {
@@ -94,12 +128,39 @@ func (m *Model) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		case "enter", " ":
 			m.showDetails = !m.showDetails
 		case "r":
+			if m.activeView != ViewLive {
+				return m, m.fetchHistorical(m.viewDuration())
+			}
 			return m, m.fetchMetrics()
 		}
 
 	case metricsMsg:
 		m.updateMetrics(msg)
+		// Persist metrics to store every 10 ticks (10 seconds)
+		m.storeCount++
+		if m.storeCount >= 10 && m.store != nil {
+			m.storeCount = 0
+			avgCPU := 0.0
+			for _, c := range m.cpuPercent {
+				avgCPU += c
+			}
+			if len(m.cpuPercent) > 0 {
+				avgCPU /= float64(len(m.cpuPercent))
+			}
+			snap := storage.MetricSnapshot{
+				Timestamp:  time.Now(),
+				CPUAvg:     avgCPU,
+				MemoryPct:  m.memoryPercent,
+				DiskPct:    m.diskUsage,
+				NetInRate:  m.netInRate,
+				NetOutRate: m.netOutRate,
+			}
+			go m.store.Insert(snap)
+		}
 		return m, tea.Batch(m.tickCmd(), m.fetchMetrics())
+
+	case historicalMsg:
+		m.histData = msg.data
 
 	case tickMsg:
 		// Smooth scrolling for graphs
@@ -118,13 +179,26 @@ func (m *Model) View() string {
 	// Use Layout system to calculate available space
 	layout := components.NewLayout(m.width, m.height)
 
-	// Build all sections
-	sections := []string{
-		m.renderSystemInfo(),
-		"",
-		m.renderMetrics(),
-		"",
-		m.renderAdvancedMetrics(),
+	// View tabs
+	viewTabs := m.renderViewTabs()
+
+	var sections []string
+	if m.activeView == ViewLive {
+		sections = []string{
+			viewTabs,
+			"",
+			m.renderSystemInfo(),
+			"",
+			m.renderMetrics(),
+			"",
+			m.renderAdvancedMetrics(),
+		}
+	} else {
+		sections = []string{
+			viewTabs,
+			"",
+			m.renderHistoricalView(),
+		}
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
@@ -690,6 +764,10 @@ type metricsMsg struct {
 	network []net.IOCountersStat
 }
 
+type historicalMsg struct {
+	data []storage.MetricSnapshot
+}
+
 type tickMsg time.Time
 
 func (m *Model) tickCmd() tea.Cmd {
@@ -725,4 +803,269 @@ func (m *Model) fetchMetrics() tea.Cmd {
 			network: netInfo,
 		}
 	}
+}
+
+func (m *Model) fetchHistorical(since time.Duration) tea.Cmd {
+	if m.store == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		data, err := m.store.Query(since)
+		if err != nil {
+			return historicalMsg{}
+		}
+		return historicalMsg{data: data}
+	}
+}
+
+func (m *Model) viewDuration() time.Duration {
+	switch m.activeView {
+	case ViewHist1h:
+		return time.Hour
+	case ViewHist6h:
+		return 6 * time.Hour
+	case ViewHist24h:
+		return 24 * time.Hour
+	case ViewHist7d:
+		return 7 * 24 * time.Hour
+	default:
+		return time.Hour
+	}
+}
+
+func (m *Model) renderViewTabs() string {
+	styles := components.NewBaseStyles()
+
+	labels := []struct {
+		key  string
+		name string
+		view ViewMode
+	}{
+		{"1", "Live", ViewLive},
+		{"2", "1h", ViewHist1h},
+		{"3", "6h", ViewHist6h},
+		{"4", "24h", ViewHist24h},
+		{"5", "7d", ViewHist7d},
+	}
+
+	var tabs []string
+	for _, l := range labels {
+		label := fmt.Sprintf("[%s] %s", l.key, l.name)
+		if l.view == m.activeView {
+			tabs = append(tabs, lipgloss.NewStyle().
+				Foreground(styles.Theme.Primary).Bold(true).
+				Render(label))
+		} else {
+			tabs = append(tabs, lipgloss.NewStyle().
+				Foreground(styles.Theme.Muted).
+				Render(label))
+		}
+	}
+
+	return strings.Join(tabs, "  ")
+}
+
+func (m *Model) renderHistoricalView() string {
+	styles := components.NewBaseStyles()
+
+	viewNames := map[ViewMode]string{
+		ViewHist1h:  "Last 1 Hour",
+		ViewHist6h:  "Last 6 Hours",
+		ViewHist24h: "Last 24 Hours",
+		ViewHist7d:  "Last 7 Days",
+	}
+
+	title := styles.Title().Render(fmt.Sprintf("📈 %s", viewNames[m.activeView]))
+
+	if m.store == nil {
+		return lipgloss.JoinVertical(lipgloss.Left, title, "",
+			styles.Muted().Render("Metrics store not available."))
+	}
+
+	if len(m.histData) == 0 {
+		return lipgloss.JoinVertical(lipgloss.Left, title, "",
+			styles.Muted().Render("No historical data yet. Metrics are recorded every 10 seconds."),
+			styles.Muted().Render("Check back shortly."))
+	}
+
+	// Calculate sparkline width
+	sparkWidth := 60
+	if m.width > 0 {
+		sparkWidth = m.width - 30
+		if sparkWidth > 100 {
+			sparkWidth = 100
+		}
+		if sparkWidth < 30 {
+			sparkWidth = 30
+		}
+	}
+
+	// Extract metric arrays
+	cpuVals := make([]float64, len(m.histData))
+	memVals := make([]float64, len(m.histData))
+	diskVals := make([]float64, len(m.histData))
+	netVals := make([]float64, len(m.histData))
+	for i, s := range m.histData {
+		cpuVals[i] = s.CPUAvg
+		memVals[i] = s.MemoryPct
+		diskVals[i] = s.DiskPct
+		netVals[i] = (s.NetInRate + s.NetOutRate) / 1024 // KB/s
+	}
+
+	labelStyle := lipgloss.NewStyle().Foreground(styles.Theme.Primary).Bold(true).Width(12)
+	statStyle := styles.Muted()
+
+	sections := []string{title, ""}
+
+	// Time range info
+	first := m.histData[0].Timestamp.Format("15:04:05")
+	last := m.histData[len(m.histData)-1].Timestamp.Format("15:04:05")
+	sections = append(sections,
+		statStyle.Render(fmt.Sprintf("Range: %s — %s  (%d data points)", first, last, len(m.histData))),
+		"")
+
+	// CPU sparkline
+	sections = append(sections,
+		labelStyle.Render("⚡ CPU %"),
+		renderSparkline(cpuVals, sparkWidth, 100),
+		statStyle.Render(fmt.Sprintf("   min: %.1f%%  avg: %.1f%%  max: %.1f%%", minVal(cpuVals), avgVal(cpuVals), maxVal(cpuVals))),
+		"")
+
+	// Memory sparkline
+	sections = append(sections,
+		labelStyle.Render("💾 Memory %"),
+		renderSparkline(memVals, sparkWidth, 100),
+		statStyle.Render(fmt.Sprintf("   min: %.1f%%  avg: %.1f%%  max: %.1f%%", minVal(memVals), avgVal(memVals), maxVal(memVals))),
+		"")
+
+	// Disk sparkline
+	sections = append(sections,
+		labelStyle.Render("💿 Disk %"),
+		renderSparkline(diskVals, sparkWidth, 100),
+		statStyle.Render(fmt.Sprintf("   min: %.1f%%  avg: %.1f%%  max: %.1f%%", minVal(diskVals), avgVal(diskVals), maxVal(diskVals))),
+		"")
+
+	// Network sparkline (auto-scaled)
+	maxNet := maxVal(netVals)
+	if maxNet < 1 {
+		maxNet = 1
+	}
+	sections = append(sections,
+		labelStyle.Render("🌐 Net KB/s"),
+		renderSparkline(netVals, sparkWidth, maxNet),
+		statStyle.Render(fmt.Sprintf("   min: %.1f  avg: %.1f  max: %.1f KB/s", minVal(netVals), avgVal(netVals), maxVal(netVals))),
+		"")
+
+	sections = append(sections,
+		styles.Muted().Render("[r] Refresh  [1] Back to Live"))
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+// renderSparkline renders an ASCII sparkline chart
+func renderSparkline(values []float64, width int, maxRange float64) string {
+	blocks := []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+
+	if len(values) == 0 {
+		return ""
+	}
+
+	// Downsample to fit width
+	sampled := downsample(values, width)
+
+	var result strings.Builder
+	for _, v := range sampled {
+		ratio := v / maxRange
+		if ratio < 0 {
+			ratio = 0
+		}
+		if ratio > 1 {
+			ratio = 1
+		}
+
+		idx := int(ratio * float64(len(blocks)-1))
+
+		// Color based on percentage (for 0-100 range)
+		pct := ratio * 100
+		color := "#0FD976" // green
+		if pct >= 85 {
+			color = "#FF6B6B" // red
+		} else if pct >= 70 {
+			color = "#FFA500" // orange
+		}
+
+		styled := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(string(blocks[idx]))
+		result.WriteString(styled)
+	}
+
+	return result.String()
+}
+
+// downsample reduces a slice to the target length by averaging buckets
+func downsample(values []float64, targetLen int) []float64 {
+	if len(values) <= targetLen {
+		return values
+	}
+
+	result := make([]float64, targetLen)
+	bucketSize := float64(len(values)) / float64(targetLen)
+
+	for i := range targetLen {
+		start := int(float64(i) * bucketSize)
+		end := int(float64(i+1) * bucketSize)
+		if end > len(values) {
+			end = len(values)
+		}
+		if start >= end {
+			if start < len(values) {
+				result[i] = values[start]
+			}
+			continue
+		}
+
+		sum := 0.0
+		for j := start; j < end; j++ {
+			sum += values[j]
+		}
+		result[i] = sum / float64(end-start)
+	}
+
+	return result
+}
+
+func minVal(vals []float64) float64 {
+	if len(vals) == 0 {
+		return 0
+	}
+	m := vals[0]
+	for _, v := range vals[1:] {
+		if v < m {
+			m = v
+		}
+	}
+	return m
+}
+
+func maxVal(vals []float64) float64 {
+	if len(vals) == 0 {
+		return 0
+	}
+	m := vals[0]
+	for _, v := range vals[1:] {
+		if v > m {
+			m = v
+		}
+	}
+	return m
+}
+
+func avgVal(vals []float64) float64 {
+	if len(vals) == 0 {
+		return 0
+	}
+	sum := 0.0
+	for _, v := range vals {
+		sum += v
+	}
+	return sum / float64(len(vals))
 }

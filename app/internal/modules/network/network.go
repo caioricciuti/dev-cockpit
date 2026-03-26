@@ -421,7 +421,7 @@ func (m *Model) pingGateway() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "/sbin/ping", "-c", "2", target)
+		cmd := exec.CommandContext(ctx, pingBin, "-c", "2", target)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			errMsg := string(out)
@@ -675,7 +675,7 @@ func (m *Model) executePing(target string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "/sbin/ping", "-c", "4", target)
+		cmd := exec.CommandContext(ctx, pingBin, "-c", "4", target)
 		output, err := cmd.CombinedOutput()
 
 		if err != nil {
@@ -707,7 +707,7 @@ func (m *Model) executeTraceroute(target string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "/usr/sbin/traceroute", "-m", "15", target)
+		cmd := exec.CommandContext(ctx, tracerouteBin, "-m", "15", target)
 		output, err := cmd.CombinedOutput()
 
 		if err != nil {
@@ -740,12 +740,12 @@ func (m *Model) executeDNS(target string) tea.Cmd {
 		defer cancel()
 
 		// Try dig first, fall back to nslookup
-		cmd := exec.CommandContext(ctx, "/usr/bin/dig", "+short", target)
+		cmd := exec.CommandContext(ctx, digBin, "+short", target)
 		output, err := cmd.CombinedOutput()
 
 		if err != nil {
 			// Fall back to nslookup
-			cmd = exec.CommandContext(ctx, "/usr/bin/nslookup", target)
+			cmd = exec.CommandContext(ctx, nslookupBin, target)
 			output, err = cmd.CombinedOutput()
 
 			if err != nil {
@@ -961,7 +961,7 @@ func (m *Model) executeWhois(target string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "/usr/bin/whois", target)
+		cmd := exec.CommandContext(ctx, whoisBin, target)
 		output, err := cmd.CombinedOutput()
 
 		if err != nil {
@@ -986,15 +986,6 @@ func (m *Model) executeWhois(target string) tea.Cmd {
 	}
 }
 
-// Helper functions
-func getDefaultGateway() string {
-	out, err := exec.Command("sh", "-c", "route get default | awk '/gateway/{print $2}'").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
 func isValidTarget(target string) bool {
 	if target == "" {
 		return false
@@ -1005,8 +996,4 @@ func isValidTarget(target string) bool {
 	return validPattern.MatchString(target)
 }
 
-func checkNetworkQualityAvailable() bool {
-	_, err := exec.LookPath("networkQuality")
-	return err == nil
-}
 

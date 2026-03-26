@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/caioricciuti/dev-cockpit/internal/app"
+	"github.com/caioricciuti/dev-cockpit/internal/cli"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/quickactions"
@@ -36,12 +37,11 @@ func main() {
 			fmt.Printf("Dev Cockpit v%s\n", version)
 			os.Exit(0)
 		case "cleanup":
-			// Minimal CLI for testing cleanup operations
+			// Handle empty-trash here; other subcommands (list) handled by CLI router
 			if len(os.Args) > 2 {
 				sub := os.Args[2]
 				switch sub {
 				case "empty-trash", "--empty-trash":
-					// Use quickactions implementation
 					if err := quickactions.EmptyTrash(); err != nil {
 						fmt.Printf("Empty Trash failed: %v\n", err)
 						os.Exit(1)
@@ -50,8 +50,7 @@ func main() {
 					os.Exit(0)
 				}
 			}
-			fmt.Println("Usage: devcockpit cleanup empty-trash")
-			os.Exit(1)
+			// Don't exit — let CLI router handle other cleanup subcommands
 		case "help", "--help", "-h":
 			showHelp()
 			os.Exit(0)
@@ -106,6 +105,13 @@ func main() {
 		}
 	}
 
+	// Try CLI commands before launching TUI
+	if len(os.Args) > 1 {
+		if cli.Run(os.Args[1:], version) {
+			os.Exit(0)
+		}
+	}
+
 	// Initialize logger (only when launching TUI)
 	if err := logger.Initialize(debugMode); err != nil {
 		log.Fatal("Failed to initialize logger:", err)
@@ -135,6 +141,7 @@ func main() {
 
 	// Create the main application
 	application := app.New(cfg, version)
+	defer application.Close()
 
 	// Initialize Bubble Tea program
 	p := tea.NewProgram(
@@ -150,7 +157,7 @@ func main() {
 }
 
 func showHelp() {
-	fmt.Printf(`Dev Cockpit v%s - macOS Development Command Center for Apple Silicon
+	fmt.Printf(`Dev Cockpit v%s - Development Command Center
 
 USAGE:
   devcockpit [flags]
@@ -160,6 +167,8 @@ USAGE:
 
 AVAILABLE TUI MODULES:
   Dashboard       Real-time system monitoring (CPU, GPU, Memory, Disk, Network)
+  Processes       Interactive process manager with search and kill
+  Services        Dev service monitor (Homebrew + port detection)
   Quick Actions   One-tap maintenance and optimization tasks
   Cleanup         Free up disk space (caches, logs, trash, downloads)
   Packages        Manage Homebrew, npm, and other package managers
@@ -167,10 +176,19 @@ AVAILABLE TUI MODULES:
   Docker          Container management and cleanup
   Network         Interface analysis and connectivity diagnostics
   Security        Firewall, FileVault, and SIP status
+  Diagnostics     Health score report with expandable checks
+  Logs            Multi-source log aggregator
   Support         Project support and sponsorship information
 
 CLI COMMANDS:
   devcockpit                       Launch interactive TUI
+  devcockpit status                Quick system status + health score
+  devcockpit diag                  Full diagnostics report
+  devcockpit ps [--sort cpu|mem|pid] [--top N]
+                                   Process list (default: top 15 by CPU)
+  devcockpit services              Homebrew service status
+  devcockpit security              Security feature status
+  devcockpit cleanup list          Show cache sizes
   devcockpit cleanup empty-trash   Empty the trash (CLI mode)
   devcockpit update                Update to the latest version
   devcockpit update --check        Check for updates without installing
@@ -184,6 +202,12 @@ CLI COMMANDS:
 
 EXAMPLES:
   devcockpit                      # Start the interactive interface
+  devcockpit status               # Quick health check
+  devcockpit diag                 # Full diagnostics report
+  devcockpit ps --sort mem --top 5  # Top 5 processes by memory
+  devcockpit services             # Check dev service status
+  devcockpit security             # Check security features
+  devcockpit cleanup list         # See cache sizes
   devcockpit --debug              # Launch with live debug output
   devcockpit cleanup empty-trash  # Empty trash from command line
   devcockpit update               # Update to the latest version

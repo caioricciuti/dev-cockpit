@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: "Get Under the Hood of Your Apple Silicon"
+  name: "Get Under the Hood of Your System"
   tagline: "Dev cockpit was made for developers who want to see what's happening real-time."
   image:
     src: /logo.png
@@ -22,7 +22,7 @@ features:
   - title: Real-time Monitoring
     details: Keep an eye on CPU, GPU, memory, disk, and network usage in real-time
 
-  - title: Keep your Mac Healthy
+  - title: Keep Your System Healthy
     details: Clean up system junk and monitor performance to ensure optimal performance
 ---
 
@@ -41,9 +41,16 @@ Run the following command in your terminal to install Dev Cockpit:
 
 
 ## Requirements
+
+**macOS:**
 - Apple Silicon Mac (M1, M1 Pro, M1 Max, M2, etc.)
-- macOS 11.0 (Big Sur) or later 
-- Terminal app (iTerm2 recommended)
+- macOS 11.0 (Big Sur) or later
+- Terminal app (iTerm2, kitty, or WezTerm recommended)
+
+**Linux:**
+- x86_64 (amd64) or ARM64 (aarch64) processor
+- Ubuntu 20.04+, Fedora 36+, Arch, or other modern distribution
+- Terminal with true color support (kitty, alacritty, WezTerm recommended)
 
 ## Sponsors
 

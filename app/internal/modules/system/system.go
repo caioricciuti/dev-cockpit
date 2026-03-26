@@ -3,7 +3,6 @@ package system
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 	"time"
@@ -26,7 +25,7 @@ type SystemInfo struct {
 	MemoryGB     int
 	Architecture string
 
-	// macOS Info
+	// OS Info
 	OSVersion   string
 	BuildNumber string
 	Hostname    string
@@ -270,7 +269,12 @@ func (m *Model) renderOverview() string {
 	content.WriteString(highlightStyle.Render("System") + "\n")
 	content.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Model:"), valueStyle.Render(m.info.Model)))
 	content.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Chip:"), valueStyle.Render(m.info.Chip)))
-	content.WriteString(fmt.Sprintf("%s %s (%s)\n", labelStyle.Render("macOS:"), valueStyle.Render(m.info.OSVersion), m.info.BuildNumber))
+	osLabel := "OS:"
+	osValue := m.info.OSVersion
+	if m.info.BuildNumber != "" {
+		osValue += " (" + m.info.BuildNumber + ")"
+	}
+	content.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render(osLabel), valueStyle.Render(osValue)))
 	content.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Hostname:"), valueStyle.Render(m.info.Hostname)))
 	content.WriteString(fmt.Sprintf("%s %s\n\n", labelStyle.Render("Uptime:"), valueStyle.Render(formatDuration(m.info.Uptime))))
 
@@ -336,7 +340,8 @@ func (m *Model) renderHardware() string {
 	// Memory
 	content.WriteString(highlightStyle.Render("Memory") + "\n")
 	content.WriteString(fmt.Sprintf("%s %d GB\n", labelStyle.Render("Total:"), m.info.MemoryGB))
-	content.WriteString(fmt.Sprintf("%s Unified Memory\n\n", labelStyle.Render("Type:")))
+	memType := platformMemoryType()
+	content.WriteString(fmt.Sprintf("%s %s\n\n", labelStyle.Render("Type:"), memType))
 
 	// Storage
 	content.WriteString(highlightStyle.Render("Storage") + "\n")
@@ -440,7 +445,7 @@ func (m *Model) renderMaintenance() string {
 		status string
 		color  string
 	}{
-		{"macOS Updates", m.checkMacOSUpdates(), "#FFA500"},
+		{"OS Updates", platformUpdateStatus(), "#FFA500"},
 		{"Disk Verification", "Press [D] to run", "#888"},
 		{"Storage Optimization", m.getStorageStatus(), m.getStorageStatusColor()},
 		{"Battery Health", m.info.BatteryHealth, "#0F0"},
@@ -457,10 +462,8 @@ func (m *Model) renderMaintenance() string {
 	content.WriteString(fmt.Sprintf("  Boot Time: %s\n", m.info.BootTime.Format("Jan 2, 15:04")))
 	content.WriteString(fmt.Sprintf("  Uptime: %s\n", formatDuration(m.info.Uptime)))
 
-	// Show if running on Apple Silicon
-	if strings.Contains(m.info.Architecture, "arm64") {
-		content.WriteString("  ✅ Running native on Apple Silicon\n")
-	}
+	// Show architecture info
+	content.WriteString(fmt.Sprintf("  Architecture: %s\n", platformArchLabel(m.info.Architecture)))
 
 	return style.Render(content.String())
 }
@@ -512,123 +515,44 @@ func (m *Model) HasOpenModal() bool {
 	return false
 }
 
-// Helper functions
+// fetchSystemInfo gathers cross-platform system info via gopsutil,
+// then delegates to fetchPlatformInfo() for OS-specific data.
 func (m *Model) fetchSystemInfo() tea.Cmd {
 	return func() tea.Msg {
 		info := SystemInfo{}
 
-		// Get macOS version
-		if output, err := exec.Command("sw_vers", "-productVersion").Output(); err == nil {
-			info.OSVersion = strings.TrimSpace(string(output))
-		}
-
-		if output, err := exec.Command("sw_vers", "-buildVersion").Output(); err == nil {
-			info.BuildNumber = strings.TrimSpace(string(output))
-		}
-
-		// Get hardware model and chip
-		if output, err := exec.Command("sysctl", "-n", "hw.model").Output(); err == nil {
-			info.Model = strings.TrimSpace(string(output))
-		}
-
-		// Detect Apple Silicon chip
-		if output, err := exec.Command("sysctl", "-n", "machdep.cpu.brand_string").Output(); err == nil {
-			brand := strings.TrimSpace(string(output))
-			if strings.Contains(brand, "Apple") {
-				info.Chip = brand
-			}
-		}
-
-		// Get architecture
 		info.Architecture = runtime.GOARCH
-
-		// Get CPU cores
 		info.CPUCores = runtime.NumCPU()
 
-		// Get memory
 		if vmStat, err := mem.VirtualMemory(); err == nil {
 			info.MemoryGB = int(vmStat.Total / 1024 / 1024 / 1024)
 			info.MemoryUsage = vmStat.UsedPercent
 		}
 
-		// Get hostname
 		if hostname, err := os.Hostname(); err == nil {
 			info.Hostname = hostname
 		}
 
-		// Get uptime and boot time
 		if hostInfo, err := host.Info(); err == nil {
 			info.Uptime = time.Duration(hostInfo.Uptime) * time.Second
 			info.BootTime = time.Unix(int64(hostInfo.BootTime), 0)
 		}
 
-		// Get CPU usage
 		if cpuPercent, err := cpu.Percent(time.Second, false); err == nil && len(cpuPercent) > 0 {
 			info.CPUUsage = cpuPercent[0]
 		}
 
-		// Get disk usage
 		if diskStat, err := disk.Usage("/"); err == nil {
 			info.DiskUsagePercent = diskStat.UsedPercent
 			info.DiskFree = diskStat.Free
 			info.DiskTotal = diskStat.Total
 		}
 
-		// Get battery info (using pmset)
-		if output, err := exec.Command("pmset", "-g", "batt").Output(); err == nil {
-			batteryStr := string(output)
-			// Parse battery level
-			if strings.Contains(batteryStr, "%") {
-				parts := strings.Split(batteryStr, "%")
-				if len(parts) > 0 {
-					// Extract percentage from string like "100%"
-					for i := len(parts[0]) - 1; i >= 0; i-- {
-						if parts[0][i] < '0' || parts[0][i] > '9' {
-							if i < len(parts[0])-1 {
-								fmt.Sscanf(parts[0][i+1:], "%d", &info.BatteryLevel)
-							}
-							break
-						}
-					}
-				}
-			}
-
-			// Check if AC Power
-			info.PowerAdapter = strings.Contains(batteryStr, "AC Power")
-
-			// Simple health status
-			if strings.Contains(batteryStr, "Normal") {
-				info.BatteryHealth = "Normal"
-			} else if strings.Contains(batteryStr, "Service") {
-				info.BatteryHealth = "Service Recommended"
-			} else {
-				info.BatteryHealth = "Good"
-			}
-		}
-
-		// Get battery cycle count
-		if output, err := exec.Command("system_profiler", "SPPowerDataType").Output(); err == nil {
-			powerStr := string(output)
-			if strings.Contains(powerStr, "Cycle Count:") {
-				lines := strings.Split(powerStr, "\n")
-				for _, line := range lines {
-					if strings.Contains(line, "Cycle Count:") {
-						parts := strings.Split(line, ":")
-						if len(parts) > 1 {
-							fmt.Sscanf(strings.TrimSpace(parts[1]), "%d", &info.BatteryCycles)
-						}
-					}
-				}
-			}
-		}
+		// Platform-specific: OS version, hardware model, chip, battery
+		fetchPlatformInfo(&info)
 
 		return systemInfoMsg{info: info}
 	}
-}
-
-func (m *Model) checkMacOSUpdates() string {
-	// This would check for updates
-	return "Check System Preferences"
 }
 
 func (m *Model) getStorageStatus() string {
@@ -649,26 +573,9 @@ func (m *Model) getStorageStatusColor() string {
 	return "#0F0"
 }
 
-func (m *Model) runDiskUtility() tea.Cmd {
-	return func() tea.Msg {
-		exec.Command("open", "-a", "Disk Utility").Run()
-		return nil
-	}
-}
-
-func (m *Model) showSMCResetInstructions() tea.Cmd {
-	return func() tea.Msg {
-		// This would show SMC reset instructions
-		return nil
-	}
-}
-
-func (m *Model) showNVRAMResetInstructions() tea.Cmd {
-	return func() tea.Msg {
-		// This would show NVRAM reset instructions
-		return nil
-	}
-}
+// runDiskUtility, showSMCResetInstructions, showNVRAMResetInstructions,
+// fetchPlatformInfo, platformMemoryType, platformUpdateStatus, platformArchLabel
+// are implemented in platform-specific files (platform_darwin.go / platform_linux.go)
 
 func formatDuration(d time.Duration) string {
 	days := int(d.Hours()) / 24

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -11,10 +12,13 @@ import (
 )
 
 const (
-	githubRepo    = "caioricciuti/dev-cockpit"
-	githubAPIURL  = "https://api.github.com/repos/" + githubRepo + "/releases/latest"
-	binaryName    = "devcockpit-darwin-arm64"
-	checksumName  = "devcockpit-darwin-arm64.sha256"
+	githubRepo   = "caioricciuti/dev-cockpit"
+	githubAPIURL = "https://api.github.com/repos/" + githubRepo + "/releases/latest"
+)
+
+var (
+	binaryName   = fmt.Sprintf("devcockpit-%s-%s", runtime.GOOS, runtime.GOARCH)
+	checksumName = binaryName + ".sha256"
 )
 
 // FetchLatestRelease queries GitHub API for the latest release

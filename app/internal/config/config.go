@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/viper"
 )
@@ -43,6 +44,13 @@ type ModulesConfig struct {
 	Docker    DockerConfig    `mapstructure:"docker"`
 	Network   NetworkConfig   `mapstructure:"network"`
 	Security  SecurityConfig  `mapstructure:"security"`
+	Logs      LogsConfig      `mapstructure:"logs"`
+}
+
+// LogsConfig holds log aggregator module configuration
+type LogsConfig struct {
+	MaxLines       int      `mapstructure:"max_lines"`
+	CustomLogPaths []string `mapstructure:"custom_log_paths"`
 }
 
 // DashboardConfig holds dashboard module configuration
@@ -170,7 +178,11 @@ func setDefaults() {
 	viper.SetDefault("modules.docker.auto_refresh", true)
 
 	// Network defaults
-	viper.SetDefault("modules.network.default_interface", "en0")
+	defaultIface := "en0"
+	if runtime.GOOS == "linux" {
+		defaultIface = "eth0"
+	}
+	viper.SetDefault("modules.network.default_interface", defaultIface)
 	viper.SetDefault("modules.network.packet_capture", false)
 	viper.SetDefault("modules.network.port_scan_timeout", 2)
 
@@ -179,6 +191,9 @@ func setDefaults() {
 	viper.SetDefault("modules.security.check_firewall", true)
 	viper.SetDefault("modules.security.check_filevault", true)
 	viper.SetDefault("modules.security.check_sip", true)
+
+	// Logs defaults
+	viper.SetDefault("modules.logs.max_lines", 500)
 
 	// System defaults
 	viper.SetDefault("system.command_timeout", 30)
@@ -234,6 +249,9 @@ modules:
     check_firewall: true
     check_filevault: true
     check_sip: true
+
+  logs:
+    max_lines: 500
 
 # System Settings
 system:

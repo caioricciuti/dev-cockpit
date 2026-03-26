@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "Dev Cockpit",
-  description: "Modern TUI for your Mac apple silicon",
+  description: "Modern TUI for macOS & Linux developers",
 
   // Ignore localhost links in examples
   ignoreDeadLinks: [/^http:\/\/localhost/],

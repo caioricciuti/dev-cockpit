@@ -1,15 +1,23 @@
 # Getting Started
 
-Welcome to Dev Cockpit! This guide will help you get up and running quickly with Dev Cockpit on your Apple Silicon Mac.
+Welcome to Dev Cockpit! This guide will help you get up and running quickly on macOS or Linux.
 
 ## Prerequisites
 
 Before installing Dev Cockpit, ensure your system meets these requirements:
 
-- **Apple Silicon Mac** (M1, M1 Pro, M1 Max, M2, M2 Pro, M2 Max, M3, M3 Pro, M3 Max)
-- **macOS 11.0 (Big Sur) or later**
-- **Terminal application** (iTerm2 recommended, but Terminal.app works fine)
-- **Internet connection** (for installation)
+**macOS:**
+- Apple Silicon Mac (M1/M2/M3/M4 series)
+- macOS 11.0 (Big Sur) or later
+- Terminal application (iTerm2, kitty, or WezTerm recommended)
+
+**Linux:**
+- x86_64 (amd64) or ARM64 (aarch64) processor
+- Modern distribution (Ubuntu 20.04+, Fedora 36+, Arch, etc.)
+- Terminal with true color support (kitty, alacritty, WezTerm recommended)
+
+**Both:**
+- Internet connection (for installation)
 
 ## Installation
 
@@ -133,19 +141,24 @@ Dev Cockpit includes these modules:
 2. **Cleanup** - Remove system junk and free up disk space
 3. **Packages** - Manage Homebrew, npm, and other package managers
 4. **Docker** - Monitor and manage Docker containers
-5. **Quick Actions** - Common development tasks
-6. **Network** - Network diagnostics and information
-7. **Security** - Security audits and privacy cleanup
-8. **System** - System information and diagnostics
-9. **Support** - Support the project
+5. **Process Manager** - View and manage running processes
+6. **Dev Services** - Monitor Homebrew services and dev tools
+7. **Quick Actions** - Common system fix tasks (platform-aware)
+8. **Network** - Network diagnostics, port scanning, and quality tests
+9. **Security** - Security audits (Firewall, Disk Encryption, SIP/Gatekeeper on macOS)
+10. **System** - System information and diagnostics
+11. **Diagnostics** - Automated health check with A-F grading
+12. **Logs** - Aggregated log viewer (system, Homebrew, Docker, app)
+13. **Metrics** - Historical performance tracking with SQLite
+14. **Support** - Support the project
 
 ## Package Manager Detection
 
 Dev Cockpit automatically detects and integrates with:
 
 ### Homebrew
-- Automatically detected at `/opt/homebrew/bin/brew` (Apple Silicon)
-- Or `/usr/local/bin/brew` (Intel Macs)
+- **macOS:** Automatically detected at `/opt/homebrew/bin/brew` (Apple Silicon) or `/usr/local/bin/brew`
+- **Linux:** Detected at `/home/linuxbrew/.linuxbrew/bin/brew`
 - If not detected, install with:
   ```bash
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -161,9 +174,10 @@ Dev Cockpit automatically detects and integrates with:
   ```
 
 ### Docker
-- Requires Docker Desktop or compatible Docker daemon
+- Requires Docker Desktop (macOS) or Docker Engine (Linux)
 - Socket expected at `/var/run/docker.sock`
-- Install Docker Desktop from [docker.com](https://www.docker.com/products/docker-desktop)
+- **macOS:** Install Docker Desktop from [docker.com](https://www.docker.com/products/docker-desktop)
+- **Linux:** Install via your package manager (`apt install docker.io`, `dnf install docker`, etc.)
 
 ## Configuration
 
@@ -198,12 +212,17 @@ devcockpit -v
 devcockpit --debug
 ```
 
-**Run cleanup operations:**
+**CLI Power Mode:**
 ```bash
-devcockpit cleanup empty-trash
+devcockpit status          # Quick system health overview
+devcockpit diag            # Full diagnostics report
+devcockpit ps              # Top processes by CPU
+devcockpit ps --sort mem   # Top processes by memory
+devcockpit services        # Homebrew services status
+devcockpit security        # Security check
+devcockpit cleanup list    # Cache sizes
+devcockpit cleanup empty-trash  # Empty trash
 ```
-
-This empties the trash from the command line without launching the TUI.
 
 **Uninstall Dev Cockpit:**
 ```bash
@@ -216,26 +235,12 @@ devcockpit uninstall --force      # Uninstall without confirmation
 devcockpit --logs
 ```
 
-**Examples:**
-```bash
-# Empty trash from CLI
-devcockpit cleanup empty-trash
-
-# Uninstall Dev Cockpit
-devcockpit uninstall
-
-# Show where logs are stored
-devcockpit --logs
-
-# Enable debug logging
-devcockpit --debug
-```
-
 ## Tips for Best Experience
 
 1. **Use a modern terminal:**
-   - iTerm2 (recommended) - Better color support and performance
-   - Terminal.app works but has limited customization
+   - **macOS:** iTerm2, kitty, or WezTerm recommended
+   - **Linux:** kitty, alacritty, or WezTerm recommended
+   - Needs true color support for the best visual experience
 
 2. **Recommended terminal size:**
    - Minimum: 80 characters × 24 lines
@@ -253,7 +258,7 @@ devcockpit --debug
    - Or run with: `sudo devcockpit`
 
 5. **Regular maintenance:**
-   - Run cleanup weekly to keep your Mac healthy
+   - Run cleanup weekly to keep your system healthy
    - Monitor system metrics to catch issues early
    - Update packages regularly through the Packages module
 
@@ -310,4 +315,4 @@ Need assistance?
 - **GitHub Issues:** [Report bugs or request features](https://github.com/caioricciuti/dev-cockpit/issues)
 - **Troubleshooting:** See the [Troubleshooting Guide](/troubleshooting)
 
-Welcome to Dev Cockpit - your command center for macOS development!
+Welcome to Dev Cockpit - your development command center!

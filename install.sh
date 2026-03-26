@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Dev Cockpit Installer
-# Install Dev Cockpit for macOS (Apple Silicon only)
+# Install Dev Cockpit for macOS and Linux
 #
 
 set -e
@@ -21,44 +21,68 @@ CONFIG_DIR="$HOME/.devcockpit"
 
 # Print colored message
 print_info() {
-    echo -e "${BLUE}ℹ${NC} $1"
+    echo -e "${BLUE}i${NC} $1"
 }
 
 print_success() {
-    echo -e "${GREEN}✓${NC} $1"
+    echo -e "${GREEN}+${NC} $1"
 }
 
 print_error() {
-    echo -e "${RED}✗${NC} $1"
+    echo -e "${RED}x${NC} $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    echo -e "${YELLOW}!${NC} $1"
 }
 
-# Check if running on macOS
-check_os() {
-    if [[ "$(uname -s)" != "Darwin" ]]; then
-        print_error "This installer only works on macOS"
-        exit 1
-    fi
-}
-
-# Check if running on Apple Silicon
-check_architecture() {
+# Detect OS and architecture
+detect_platform() {
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     ARCH=$(uname -m)
-    if [[ "$ARCH" != "arm64" ]]; then
-        print_error "Dev Cockpit requires Apple Silicon (M1/M2/M3)"
+
+    case "$OS" in
+        darwin)
+            OS="darwin"
+            ;;
+        linux)
+            OS="linux"
+            ;;
+        *)
+            print_error "Unsupported operating system: $OS"
+            print_error "Dev Cockpit supports macOS and Linux"
+            exit 1
+            ;;
+    esac
+
+    case "$ARCH" in
+        arm64|aarch64)
+            ARCH="arm64"
+            ;;
+        x86_64|amd64)
+            ARCH="amd64"
+            ;;
+        *)
+            print_error "Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+    esac
+
+    # Darwin only supports arm64
+    if [[ "$OS" == "darwin" && "$ARCH" != "arm64" ]]; then
+        print_error "macOS builds are only available for Apple Silicon (arm64)"
         print_error "Detected architecture: $ARCH"
         exit 1
     fi
+
+    PLATFORM_BINARY="${BINARY_NAME}-${OS}-${ARCH}"
+    print_info "Detected platform: ${OS}/${ARCH}"
 }
 
 # Get latest release info from GitHub
 get_latest_release() {
     print_info "Fetching latest release information..."
 
-    # Try to get latest release tag
     LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
     if [[ -z "$LATEST_TAG" ]]; then
@@ -73,7 +97,7 @@ get_latest_release() {
 download_binary() {
     print_info "Downloading Dev Cockpit..."
 
-    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${BINARY_NAME}-darwin-arm64"
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${PLATFORM_BINARY}"
     TEMP_FILE="/tmp/${BINARY_NAME}-$$"
 
     if command -v curl &> /dev/null; then
@@ -95,15 +119,25 @@ download_binary() {
     print_success "Downloaded successfully"
 }
 
-# Verify checksum (required for security)
+# Verify checksum
 verify_checksum() {
     print_info "Verifying checksum..."
 
-    CHECKSUM_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${BINARY_NAME}-darwin-arm64.sha256"
+    CHECKSUM_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${PLATFORM_BINARY}.sha256"
 
     if curl -s -L -f "$CHECKSUM_URL" -o /tmp/devcockpit-checksum-$$ 2>/dev/null; then
         EXPECTED_CHECKSUM=$(cat /tmp/devcockpit-checksum-$$ | awk '{print $1}')
-        ACTUAL_CHECKSUM=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
+
+        # Use appropriate checksum tool
+        if command -v sha256sum &> /dev/null; then
+            ACTUAL_CHECKSUM=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
+        elif command -v shasum &> /dev/null; then
+            ACTUAL_CHECKSUM=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
+        else
+            print_warning "No checksum tool found, skipping verification"
+            rm -f /tmp/devcockpit-checksum-$$
+            return
+        fi
 
         if [[ "$EXPECTED_CHECKSUM" == "$ACTUAL_CHECKSUM" ]]; then
             print_success "Checksum verified"
@@ -120,7 +154,6 @@ verify_checksum() {
         rm -f /tmp/devcockpit-checksum-$$
     else
         print_warning "Checksum file not available, skipping verification"
-        print_warning "This is not recommended for security reasons"
     fi
 }
 
@@ -128,10 +161,8 @@ verify_checksum() {
 install_binary() {
     print_info "Installing to $INSTALL_DIR..."
 
-    # Make binary executable
     chmod +x "$TEMP_FILE"
 
-    # Check if we need sudo
     if [[ -w "$INSTALL_DIR" ]]; then
         mv "$TEMP_FILE" "$INSTALL_DIR/$BINARY_NAME"
     else
@@ -155,9 +186,7 @@ create_config_dir() {
 # Print success message
 print_completion() {
     echo ""
-    echo -e "${GREEN}╔════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║  Dev Cockpit installed successfully! 🚀    ║${NC}"
-    echo -e "${GREEN}╚════════════════════════════════════════════╝${NC}"
+    echo -e "${GREEN}Dev Cockpit installed successfully!${NC}"
     echo ""
     echo -e "${BLUE}Get started:${NC}"
     echo "  devcockpit              # Launch the TUI"
@@ -173,14 +202,10 @@ print_completion() {
 # Main installation flow
 main() {
     echo ""
-    echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║      Dev Cockpit Installer v1.0.0          ║${NC}"
-    echo -e "${BLUE}║  Professional macOS Development Cockpit    ║${NC}"
-    echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
+    echo -e "${BLUE}Dev Cockpit Installer${NC}"
     echo ""
 
-    check_os
-    check_architecture
+    detect_platform
     get_latest_release
     download_binary
     verify_checksum
@@ -189,5 +214,4 @@ main() {
     print_completion
 }
 
-# Run main function
 main

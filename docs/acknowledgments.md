@@ -33,13 +33,14 @@ Configuration management library supporting multiple formats and live reloading.
 
 ## Development Tools
 
-### macOS System Tools
-Dev Cockpit integrates with native macOS utilities:
-- `brew` - Homebrew package manager
+### System Tools
+Dev Cockpit integrates with platform-native utilities:
+- `brew` - Homebrew package manager (macOS + Linuxbrew)
 - `npm` - Node package manager
 - `docker` - Container management
-- `xcode-select` - Xcode command line tools
-- Various system commands (`du`, `ps`, `sysctl`, etc.)
+- **macOS:** `sysctl`, `pmset`, `sw_vers`, `networksetup`, `diskutil`
+- **Linux:** `journalctl`, `systemctl`, `nmcli`, `ip`, `resolvectl`, `lsblk`
+- Various cross-platform commands (`du`, `ps`, `ping`, `dig`, etc.)
 
 ## Documentation
 
@@ -58,13 +59,13 @@ Special thanks to everyone who has:
 - 📚 Improved documentation
 - ❤️ Supported the project through donations
 
-## Apple Silicon
+## Cross-Platform
 
-Built specifically for Apple Silicon Macs (M1/M2/M3 chips), leveraging the power and efficiency of ARM64 architecture.
+Built for macOS (Apple Silicon) and Linux (x86_64, ARM64), using Go build tags for clean platform separation with zero runtime overhead.
 
 ## Inspiration
 
-Dev Cockpit was inspired by the need for a unified, modern command center for macOS development workflows, combining system monitoring, package management, and maintenance tools in one beautiful TUI.
+Dev Cockpit was inspired by the need for a unified, modern command center for development workflows, combining system monitoring, package management, and maintenance tools in one beautiful TUI.
 
 ---
 

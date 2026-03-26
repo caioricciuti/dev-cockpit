@@ -162,9 +162,12 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/caioricciuti/d
    ```bash
    devcockpit cleanup empty-trash
    ```
-3. If still failing, try macOS native command:
+3. If still failing, try a manual cleanup:
    ```bash
+   # macOS
    rm -rf ~/.Trash/*
+   # Linux
+   rm -rf ~/.local/share/Trash/files/*
    ```
 
 ## Terminal and Display Issues
@@ -236,7 +239,7 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/caioricciuti/d
    ps aux | grep -E "brew|npm|docker"
    ```
 3. Restart Dev Cockpit
-4. Reboot Mac if system is generally slow
+4. Reboot your system if it is generally slow
 
 ## Navigation and Controls
 
@@ -267,6 +270,63 @@ sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/caioricciuti/d
 2. Use number keys (**1-9**) or **Tab** to switch
 3. Use **←** and **→** arrow keys to navigate tabs
 4. Make sure no modal is open (**ESC** to close)
+
+## Linux-Specific Issues
+
+### Missing System Tools
+
+**Problem:** Some features don't work on Linux
+
+**Solution:**
+Install the required tools for your distribution:
+
+```bash
+# Ubuntu/Debian
+sudo apt install ufw lsblk traceroute dnsutils whois xclip
+
+# Fedora
+sudo dnf install ufw lsblk traceroute bind-utils whois xclip
+
+# Arch
+sudo pacman -S ufw util-linux traceroute bind whois xclip
+```
+
+### journalctl Permission Denied
+
+**Problem:** System logs show "Error" or "journalctl not available"
+
+**Solution:**
+Add your user to the `systemd-journal` group:
+```bash
+sudo usermod -aG systemd-journal $USER
+# Log out and back in for changes to take effect
+```
+
+### Clipboard Not Working
+
+**Problem:** Copy to clipboard doesn't work in the Support module
+
+**Solution:**
+Install `xclip` or `xsel`:
+```bash
+# Ubuntu/Debian
+sudo apt install xclip
+# or
+sudo apt install xsel
+```
+
+### NetworkManager Not Available
+
+**Problem:** Network quick actions fail
+
+**Solution:**
+If you're not using NetworkManager, the network quick actions may not work.
+Check if NetworkManager is running:
+```bash
+systemctl status NetworkManager
+```
+
+For systems using `systemd-networkd`, network reset will fall back to restarting the networking service.
 
 ## Debug Mode
 
@@ -314,7 +374,7 @@ If you're still experiencing issues:
 
 2. **Create a new issue:**
    Include:
-   - macOS version and chip (M1/M2/M3)
+   - OS version and architecture
    - Dev Cockpit version (`devcockpit --version`)
    - Terminal app being used
    - Steps to reproduce
@@ -324,11 +384,8 @@ If you're still experiencing issues:
 3. **System Information:**
    Helpful details to include:
    ```bash
-   # macOS version
-   sw_vers
-
-   # Chip type
-   uname -m  # Should show "arm64"
+   # OS and architecture
+   uname -sm
 
    # Package manager versions
    brew --version
@@ -373,7 +430,7 @@ When reporting bugs, please include:
 - Clear description of the issue
 - Steps to reproduce
 - Expected vs. actual behavior
-- macOS version and chip type
+- OS, version, and architecture (`uname -sm`)
 - Error messages or screenshots
 - Debug log excerpt if relevant
 

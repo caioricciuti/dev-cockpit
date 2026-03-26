@@ -14,7 +14,7 @@ Make sure to include:
 1. A clear title describing the bug
 2. Steps to reproduce the issue
 3. Expected vs. actual behavior
-4. macOS version and chip type (M1/M2/M3)
+4. OS, version, and architecture (`uname -sm`)
 5. Any relevant error messages or logs (check `~/.devcockpit/debug.log`)
 
 ### Requesting Features 💡
@@ -78,9 +78,8 @@ git push origin feature/my-new-feature
 
 ### Prerequisites
 
-- macOS 11.0+ running on Apple Silicon (M1/M2/M3)
-- Go 1.21 or newer (`brew install go`)
-- Xcode Command Line Tools (`xcode-select --install`)
+- **macOS:** macOS 11.0+ on Apple Silicon, or **Linux:** Ubuntu 20.04+, Fedora 36+, Arch, etc.
+- Go 1.25 or newer (`brew install go` or your package manager)
 
 ### Setting Up the Environment
 
@@ -162,7 +161,7 @@ make build
 ./build/devcockpit
 ```
 
-3. Test on a clean macOS installation if possible
+3. Test on a clean system if possible (both macOS and Linux if touching platform code)
 
 ### Adding a New Module
 
@@ -186,7 +185,7 @@ To add a new module to Dev Cockpit:
 
 - Use GitHub Issues for bug reports and feature requests
 - Star the repository to show your support
-- Share Dev Cockpit with other Apple Silicon users
+- Share Dev Cockpit with other developers
 
 ## License 📄
 
@@ -194,7 +193,7 @@ By contributing to Dev Cockpit, you agree that your contributions will be licens
 
 ## Thank You! ❤️
 
-Thank you for being part of the Dev Cockpit community. Together, we can build the best macOS development command center!
+Thank you for being part of the Dev Cockpit community. Together, we can build the best development command center!
 
 ::: info
 Need help getting started? Feel free to reach out through GitHub Issues or check the documentation at [devcockpit.app](https://devcockpit.app)

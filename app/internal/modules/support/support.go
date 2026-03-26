@@ -180,43 +180,66 @@ func (m *Model) HasOpenModal() bool {
 
 func (m *Model) openURL(label, url string) tea.Cmd {
 	return func() tea.Msg {
-		if runtime.GOOS != "darwin" {
-			return supportMsg{note: fmt.Sprintf("📋 Link: %s", url)}
+		var opener string
+		switch runtime.GOOS {
+		case "darwin":
+			opener = "open"
+		case "linux":
+			opener = "xdg-open"
+		default:
+			return supportMsg{note: fmt.Sprintf("Link: %s", url)}
 		}
 
-		cmd := exec.Command("open", url)
+		cmd := exec.Command(opener, url)
 		if err := cmd.Start(); err != nil {
-			return supportMsg{note: fmt.Sprintf("❌ Unable to open %s: %v", label, err)}
+			return supportMsg{note: fmt.Sprintf("Unable to open %s: %v", label, err)}
 		}
-		return supportMsg{note: fmt.Sprintf("✓ Opening %s in your browser…", label)}
+		return supportMsg{note: fmt.Sprintf("Opening %s in your browser…", label)}
 	}
 }
 
 func (m *Model) copyToClipboard(url string) tea.Cmd {
 	return func() tea.Msg {
-		// Use pbcopy on macOS to copy to clipboard
-		if runtime.GOOS == "darwin" {
-			cmd := exec.Command("pbcopy")
-			stdin, err := cmd.StdinPipe()
-			if err != nil {
-				return supportMsg{note: fmt.Sprintf("❌ Failed to access clipboard: %v", err)}
+		var clipCmd string
+		switch runtime.GOOS {
+		case "darwin":
+			clipCmd = "pbcopy"
+		case "linux":
+			// Try xclip first, fall back to xsel
+			if _, err := exec.LookPath("xclip"); err == nil {
+				clipCmd = "xclip"
+			} else if _, err := exec.LookPath("xsel"); err == nil {
+				clipCmd = "xsel"
+			} else {
+				return supportMsg{note: fmt.Sprintf("URL: %s (install xclip for clipboard support)", url)}
 			}
-
-			if err := cmd.Start(); err != nil {
-				return supportMsg{note: fmt.Sprintf("❌ Failed to copy: %v", err)}
-			}
-
-			if _, err := stdin.Write([]byte(url)); err != nil {
-				return supportMsg{note: fmt.Sprintf("❌ Failed to write to clipboard: %v", err)}
-			}
-
-			stdin.Close()
-			cmd.Wait()
-
-			return supportMsg{note: fmt.Sprintf("✓ Copied to clipboard: %s", url)}
+		default:
+			return supportMsg{note: fmt.Sprintf("URL: %s", url)}
 		}
 
-		return supportMsg{note: fmt.Sprintf("📋 URL: %s", url)}
+		var cmd *exec.Cmd
+		if clipCmd == "xclip" {
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		} else if clipCmd == "xsel" {
+			cmd = exec.Command("xsel", "--clipboard", "--input")
+		} else {
+			cmd = exec.Command(clipCmd)
+		}
+
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return supportMsg{note: fmt.Sprintf("Failed to access clipboard: %v", err)}
+		}
+
+		if err := cmd.Start(); err != nil {
+			return supportMsg{note: fmt.Sprintf("Failed to copy: %v", err)}
+		}
+
+		stdin.Write([]byte(url))
+		stdin.Close()
+		cmd.Wait()
+
+		return supportMsg{note: fmt.Sprintf("Copied to clipboard: %s", url)}
 	}
 }
 

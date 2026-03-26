@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,13 +11,18 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/cleanup"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/dashboard"
+	diagmodule "github.com/caioricciuti/dev-cockpit/internal/modules/diagnostics"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/docker"
+	"github.com/caioricciuti/dev-cockpit/internal/modules/logs"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/network"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/packages"
+	"github.com/caioricciuti/dev-cockpit/internal/modules/processes"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/quickactions"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/security"
+	"github.com/caioricciuti/dev-cockpit/internal/modules/services"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/support"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/system"
+	"github.com/caioricciuti/dev-cockpit/internal/storage"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
 	tea "github.com/charmbracelet/bubbletea"
@@ -50,6 +56,7 @@ type Model struct {
 	logLoadErr    error
 	maxLogLines   int
 	logPath       string
+	store         *storage.Store
 }
 
 // New creates a new application model
@@ -62,15 +69,37 @@ func New(cfg *config.Config, version string) *Model {
 		logPath:     logger.GetLogPath(),
 	}
 
+	// Open metrics store
+	dbPath := filepath.Join(cfg.Storage.DataDir, "metrics.db")
+	store, err := storage.Open(dbPath)
+	if err != nil {
+		logger.Error("Failed to open metrics store: %v", err)
+	} else {
+		m.store = store
+		// Prune old data on startup
+		if pruneErr := store.Prune(cfg.Storage.MaxHistoryDays); pruneErr != nil {
+			logger.Error("Failed to prune metrics: %v", pruneErr)
+		}
+	}
+
 	// Initialize modules
 	m.initializeModules()
 
 	return m
 }
 
+// Close cleans up application resources
+func (m *Model) Close() {
+	if m.store != nil {
+		m.store.Close()
+	}
+}
+
 func (m *Model) initializeModules() {
 	m.modules = []Module{
-		dashboard.New(m.config),
+		dashboard.New(m.config, m.store),
+		processes.New(m.config),
+		services.New(m.config),
 		quickactions.New(m.config),
 		cleanup.New(m.config),
 		packages.New(m.config),
@@ -78,6 +107,8 @@ func (m *Model) initializeModules() {
 		docker.New(m.config),
 		network.New(m.config),
 		security.New(m.config),
+		diagmodule.New(m.config),
+		logs.New(m.config),
 		support.New(),
 	}
 }
