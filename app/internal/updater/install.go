@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/caioricciuti/dev-cockpit/internal/sudo"
@@ -49,6 +50,14 @@ func InstallUpdate(newBinaryPath, targetPath string) error {
 		// Rollback: restore from backup
 		sudo.Run("cp", backupPath, targetPath)
 		return fmt.Errorf("failed to set permissions, rolled back: %w", err)
+	}
+
+	// Step 3b: Re-sign binary on macOS (cp strips the ad-hoc code signature)
+	if runtime.GOOS == "darwin" {
+		if _, err := sudo.Run("codesign", "--force", "--sign", "-", targetPath); err != nil {
+			sudo.Run("cp", backupPath, targetPath)
+			return fmt.Errorf("failed to sign binary, rolled back: %w", err)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
