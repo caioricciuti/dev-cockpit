@@ -3,11 +3,15 @@
 package security
 
 import (
+	"context"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+const cmdTimeout = 5 * time.Second
 
 func (m *Model) refresh() tea.Cmd {
 	return func() tea.Msg {
@@ -24,8 +28,9 @@ func (m *Model) refresh() tea.Cmd {
 }
 
 func checkLinuxFirewall() string {
-	// Try ufw first
-	out, err := exec.Command("ufw", "status").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ufw", "status").CombinedOutput()
 	if err == nil {
 		s := strings.TrimSpace(string(out))
 		if strings.Contains(strings.ToLower(s), "active") {
@@ -34,8 +39,7 @@ func checkLinuxFirewall() string {
 		return "UFW: Inactive"
 	}
 
-	// Fallback to iptables
-	out, err = exec.Command("iptables", "-L", "-n", "--line-numbers").CombinedOutput()
+	out, err = exec.CommandContext(ctx, "iptables", "-L", "-n", "--line-numbers").CombinedOutput()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		ruleCount := 0
@@ -55,14 +59,14 @@ func checkLinuxFirewall() string {
 }
 
 func checkDiskEncryption() string {
-	// Check for LUKS via lsblk
-	out, err := exec.Command("lsblk", "-o", "NAME,TYPE,FSTYPE", "--noheadings").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "lsblk", "-o", "NAME,TYPE,FSTYPE", "--noheadings").CombinedOutput()
 	if err == nil && strings.Contains(string(out), "crypto_LUKS") {
 		return "Disk Encryption: LUKS enabled"
 	}
 
-	// Check crypttab
-	out, err = exec.Command("cat", "/etc/crypttab").CombinedOutput()
+	out, err = exec.CommandContext(ctx, "cat", "/etc/crypttab").CombinedOutput()
 	if err == nil && strings.TrimSpace(string(out)) != "" {
 		return "Disk Encryption: Configured (crypttab)"
 	}

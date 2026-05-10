@@ -179,7 +179,7 @@ print_completion() {
 main() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║      Dev Cockpit Uninstaller v1.0.0       ║${NC}"
+    echo -e "${BLUE}║      Dev Cockpit Uninstaller v2.1.0       ║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
     echo ""
 

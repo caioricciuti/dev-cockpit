@@ -2,11 +2,13 @@ package uninstaller
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/caioricciuti/dev-cockpit/internal/sudo"
 )
@@ -61,7 +63,7 @@ func Uninstall(force bool) error {
 func printBanner() {
 	fmt.Println()
 	fmt.Printf("%s╔════════════════════════════════════════════╗%s\n", colorBlue, colorNC)
-	fmt.Printf("%s║      Dev Cockpit Uninstaller v1.0.0       ║%s\n", colorBlue, colorNC)
+	fmt.Printf("%s║      Dev Cockpit Uninstaller v2.1.0       ║%s\n", colorBlue, colorNC)
 	fmt.Printf("%s╚════════════════════════════════════════════╝%s\n", colorBlue, colorNC)
 	fmt.Println()
 }
@@ -79,10 +81,10 @@ func confirmUninstall() bool {
 }
 
 func checkRunning() error {
-	// Check if Dev Cockpit is running
-	cmd := exec.Command("pgrep", "-x", binaryName)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "pgrep", "-x", binaryName)
 	if err := cmd.Run(); err == nil {
-		// Process is running
 		printWarning("Dev Cockpit is currently running")
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Do you want to stop it? (y/N): ")
@@ -95,15 +97,12 @@ func checkRunning() error {
 		if response == "y" || response == "yes" {
 			printInfo("Stopping Dev Cockpit...")
 
-			// Try graceful termination first
-			exec.Command("pkill", "-TERM", binaryName).Run()
+			exec.CommandContext(ctx, "pkill", "-TERM", binaryName).Run()
 
-			// Wait a moment
-			exec.Command("sleep", "2").Run()
+			time.Sleep(2 * time.Second)
 
-			// Force kill if still running
-			if cmd := exec.Command("pgrep", "-x", binaryName); cmd.Run() == nil {
-				exec.Command("pkill", "-KILL", binaryName).Run()
+			if cmd := exec.CommandContext(ctx, "pgrep", "-x", binaryName); cmd.Run() == nil {
+				exec.CommandContext(ctx, "pkill", "-KILL", binaryName).Run()
 			}
 
 			printSuccess("Dev Cockpit stopped")
@@ -169,9 +168,10 @@ func removeConfig() error {
 		printInfo("  - data directory")
 	}
 
-	// Show directory size
-	cmd := exec.Command("du", "-sh", configDir)
-	if output, err := cmd.Output(); err == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	duCmd := exec.CommandContext(ctx, "du", "-sh", configDir)
+	if output, err := duCmd.Output(); err == nil {
 		size := strings.Fields(string(output))[0]
 		printInfo(fmt.Sprintf("  Total size: %s", size))
 	}

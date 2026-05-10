@@ -1,11 +1,13 @@
 package updater
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/caioricciuti/dev-cockpit/internal/sudo"
 )
@@ -49,8 +51,9 @@ func InstallUpdate(newBinaryPath, targetPath string) error {
 		return fmt.Errorf("failed to set permissions, rolled back: %w", err)
 	}
 
-	// Step 4: Test new binary
-	cmd := exec.Command(targetPath, "version")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, targetPath, "version")
 	if err := cmd.Run(); err != nil {
 		// Rollback: restore from backup
 		sudo.Run("cp", backupPath, targetPath)

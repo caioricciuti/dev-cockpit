@@ -103,7 +103,7 @@ func (m *Model) killHeavyProcesses() error {
 	cmd := "ps aux | awk '$3 > 80 && NR > 1 {print $2}' | head -5"
 	output, err := runShellWithTimeoutOutput(shortCommandTimeout, cmd)
 	if err != nil {
-		return fmt.Errorf("failed to get heavy processes: %v", err)
+		return fmt.Errorf("failed to get heavy processes: %w", err)
 	}
 
 	pids := strings.Fields(strings.TrimSpace(string(output)))
@@ -328,7 +328,7 @@ func emptyTrashInternal() error {
 		logger.Warn("Direct removal failed: %v", err)
 		// Fallback with find
 		if err := runCommandWithTimeout(defaultCommandTimeout, "find", trashPath, "-mindepth", "1", "-delete"); err != nil {
-			return fmt.Errorf("failed to empty trash: %v", err)
+			return fmt.Errorf("failed to empty trash: %w", err)
 		}
 	}
 
@@ -381,7 +381,7 @@ func (m *Model) cleanDownloads() error {
 
 	if err != nil {
 		logger.Error("Failed to clean Downloads: %v", err)
-		return fmt.Errorf("failed to clean downloads: %v", err)
+		return fmt.Errorf("failed to clean downloads: %w", err)
 	}
 
 	afterOutput, _ := runCommandWithTimeoutOutput(shortCommandTimeout, "find", downloadsPath, "-type", "f", "-mtime", "+30")

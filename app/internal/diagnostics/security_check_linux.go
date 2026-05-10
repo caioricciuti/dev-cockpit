@@ -3,10 +3,14 @@
 package diagnostics
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+const securityCmdTimeout = 5 * time.Second
 
 func CheckSecurity() CheckResult {
 	r := CheckResult{Category: "Security"}
@@ -45,7 +49,9 @@ func CheckSecurity() CheckResult {
 }
 
 func checkLinuxFirewall() secStatus {
-	out, err := exec.Command("ufw", "status").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), securityCmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ufw", "status").CombinedOutput()
 	if err == nil {
 		s := strings.ToLower(strings.TrimSpace(string(out)))
 		if strings.Contains(s, "active") && !strings.Contains(s, "inactive") {
@@ -54,7 +60,7 @@ func checkLinuxFirewall() secStatus {
 		return secStatus{false, "UFW Inactive", "Enable firewall: sudo ufw enable"}
 	}
 
-	out, err = exec.Command("iptables", "-L", "-n").CombinedOutput()
+	out, err = exec.CommandContext(ctx, "iptables", "-L", "-n").CombinedOutput()
 	if err == nil {
 		lines := strings.Split(string(out), "\n")
 		rules := 0
@@ -75,13 +81,14 @@ func checkLinuxFirewall() secStatus {
 }
 
 func checkLinuxDiskEncryption() secStatus {
-	out, err := exec.Command("lsblk", "-o", "NAME,TYPE,FSTYPE", "--noheadings").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), securityCmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "lsblk", "-o", "NAME,TYPE,FSTYPE", "--noheadings").CombinedOutput()
 	if err == nil && strings.Contains(string(out), "crypto_LUKS") {
 		return secStatus{true, "LUKS Enabled", ""}
 	}
 
-	// Check /etc/crypttab
-	out, _ = exec.Command("cat", "/etc/crypttab").CombinedOutput()
+	out, _ = exec.CommandContext(ctx, "cat", "/etc/crypttab").CombinedOutput()
 	content := strings.TrimSpace(string(out))
 	if content != "" && !strings.HasPrefix(content, "#") {
 		return secStatus{true, "Configured (crypttab)", ""}

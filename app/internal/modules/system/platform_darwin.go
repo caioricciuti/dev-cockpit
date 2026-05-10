@@ -3,24 +3,28 @@
 package system
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func fetchPlatformInfo(info *SystemInfo) {
-	if output, err := exec.Command("sw_vers", "-productVersion").Output(); err == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if output, err := exec.CommandContext(ctx, "sw_vers", "-productVersion").Output(); err == nil {
 		info.OSVersion = strings.TrimSpace(string(output))
 	}
-	if output, err := exec.Command("sw_vers", "-buildVersion").Output(); err == nil {
+	if output, err := exec.CommandContext(ctx, "sw_vers", "-buildVersion").Output(); err == nil {
 		info.BuildNumber = strings.TrimSpace(string(output))
 	}
-	if output, err := exec.Command("sysctl", "-n", "hw.model").Output(); err == nil {
+	if output, err := exec.CommandContext(ctx, "sysctl", "-n", "hw.model").Output(); err == nil {
 		info.Model = strings.TrimSpace(string(output))
 	}
-	if output, err := exec.Command("sysctl", "-n", "machdep.cpu.brand_string").Output(); err == nil {
+	if output, err := exec.CommandContext(ctx, "sysctl", "-n", "machdep.cpu.brand_string").Output(); err == nil {
 		brand := strings.TrimSpace(string(output))
 		if strings.Contains(brand, "Apple") {
 			info.Chip = brand
@@ -29,8 +33,7 @@ func fetchPlatformInfo(info *SystemInfo) {
 		}
 	}
 
-	// Battery via pmset
-	if output, err := exec.Command("pmset", "-g", "batt").Output(); err == nil {
+	if output, err := exec.CommandContext(ctx, "pmset", "-g", "batt").Output(); err == nil {
 		batteryStr := string(output)
 		if strings.Contains(batteryStr, "%") {
 			parts := strings.Split(batteryStr, "%")
@@ -55,8 +58,7 @@ func fetchPlatformInfo(info *SystemInfo) {
 		}
 	}
 
-	// Battery cycle count
-	if output, err := exec.Command("system_profiler", "SPPowerDataType").Output(); err == nil {
+	if output, err := exec.CommandContext(ctx, "system_profiler", "SPPowerDataType").Output(); err == nil {
 		for _, line := range strings.Split(string(output), "\n") {
 			if strings.Contains(line, "Cycle Count:") {
 				parts := strings.Split(line, ":")

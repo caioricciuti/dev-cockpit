@@ -109,7 +109,7 @@ func Update(opts UpdateOptions) error {
 func printBanner() {
 	fmt.Println()
 	fmt.Printf("%s╔════════════════════════════════════════════╗%s\n", colorBlue, colorNC)
-	fmt.Printf("%s║      Dev Cockpit Updater v1.0.0           ║%s\n", colorBlue, colorNC)
+	fmt.Printf("%s║      Dev Cockpit Updater v2.1.0           ║%s\n", colorBlue, colorNC)
 	fmt.Printf("%s╚════════════════════════════════════════════╝%s\n", colorBlue, colorNC)
 	fmt.Println()
 }

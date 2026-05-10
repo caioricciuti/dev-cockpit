@@ -3,10 +3,14 @@
 package diagnostics
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+const securityCmdTimeout = 5 * time.Second
 
 func CheckSecurity() CheckResult {
 	r := CheckResult{Category: "Security"}
@@ -47,9 +51,11 @@ func CheckSecurity() CheckResult {
 }
 
 func checkFirewall() secStatus {
-	out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), securityCmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").CombinedOutput()
 	if err != nil {
-		out, err = exec.Command("defaults", "read", "/Library/Preferences/com.apple.alf", "globalstate").CombinedOutput()
+		out, err = exec.CommandContext(ctx, "defaults", "read", "/Library/Preferences/com.apple.alf", "globalstate").CombinedOutput()
 		if err != nil {
 			return secStatus{false, "Unknown", "Enable Firewall in System Settings > Network > Firewall"}
 		}
@@ -72,7 +78,9 @@ func checkFirewall() secStatus {
 }
 
 func checkFileVault() secStatus {
-	out, err := exec.Command("fdesetup", "status").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), securityCmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "fdesetup", "status").CombinedOutput()
 	if err != nil {
 		return secStatus{false, "Unknown", "Enable FileVault in System Settings > Privacy & Security"}
 	}
@@ -86,7 +94,9 @@ func checkFileVault() secStatus {
 }
 
 func checkSIP() secStatus {
-	out, err := exec.Command("csrutil", "status").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), securityCmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "csrutil", "status").CombinedOutput()
 	if err != nil {
 		return secStatus{false, "Unknown", "Re-enable SIP via Recovery Mode: csrutil enable"}
 	}
@@ -100,7 +110,9 @@ func checkSIP() secStatus {
 }
 
 func checkGatekeeper() secStatus {
-	out, err := exec.Command("spctl", "--status").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), securityCmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "spctl", "--status").CombinedOutput()
 	if err != nil {
 		return secStatus{false, "Unknown", "Enable Gatekeeper: sudo spctl --master-enable"}
 	}

@@ -23,14 +23,15 @@ type Container struct {
 
 // Model represents the Docker module state
 type Model struct {
-	config     *config.Config
-	width      int
-	height     int
-	containers []Container
-	cursor     int
-	output     string
-	runningCmd bool
-	dockerOK   bool
+	config       *config.Config
+	width        int
+	height       int
+	containers   []Container
+	cursor       int
+	output       string
+	runningCmd   bool
+	dockerOK     bool
+	runtimeLabel string
 }
 
 // New creates a new Docker module
@@ -77,6 +78,7 @@ func (m *Model) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 		m.containers = msg.items
 		m.output = msg.note
 		m.dockerOK = msg.ok
+		m.runtimeLabel = msg.runtimeLabel
 		if m.cursor >= len(m.containers) {
 			m.cursor = 0
 		}
@@ -96,11 +98,15 @@ func (m *Model) View() string {
 		return "Loading..."
 	}
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00D9FF")).Render("🐳 DOCKER")
+	titleText := "🐳 DOCKER"
+	if m.runtimeLabel != "" {
+		titleText = fmt.Sprintf("🐳 DOCKER (%s)", m.runtimeLabel)
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00D9FF")).Render(titleText)
 	help := lipgloss.NewStyle().Foreground(lipgloss.Color("#888")).Render("[r] Refresh  [s] Start/Stop  [l] Logs")
 
 	if !m.dockerOK {
-		msg := "Docker not available. Install Docker Desktop and ensure the daemon is running."
+		msg := "Docker not available. Install Docker Desktop (or OrbStack on macOS) and ensure the daemon is running."
 		return lipgloss.JoinVertical(lipgloss.Top, title, "", msg)
 	}
 
@@ -147,9 +153,10 @@ func (m *Model) HasOpenModal() bool { return false }
 
 // Messages
 type containersMsg struct {
-	items []Container
-	note  string
-	ok    bool
+	items        []Container
+	note         string
+	ok           bool
+	runtimeLabel string
 }
 type actionMsg struct{ note string }
 
@@ -161,6 +168,7 @@ func (m *Model) refresh() tea.Cmd {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+		runtime := detectRuntime(ctx)
 		out, err := exec.CommandContext(ctx, "docker", "ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}").Output()
 		if err != nil {
 			return containersMsg{ok: false, note: "Docker daemon not reachable"}
@@ -177,8 +185,23 @@ func (m *Model) refresh() tea.Cmd {
 			}
 			items = append(items, Container{ID: parts[0], Name: parts[1], Image: parts[2], Status: parts[3], State: parts[4]})
 		}
-		note := fmt.Sprintf("%d containers", len(items))
-		return containersMsg{items: items, note: note, ok: true}
+		note := fmt.Sprintf("%d containers via %s", len(items), runtime)
+		return containersMsg{items: items, note: note, ok: true, runtimeLabel: runtime}
+	}
+}
+
+func detectRuntime(ctx context.Context) string {
+	out, err := exec.CommandContext(ctx, "docker", "context", "inspect", "--format", "{{.Name}}").Output()
+	if err != nil {
+		return "Docker"
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "desktop-linux":
+		return "Docker Desktop"
+	case "orbstack":
+		return "OrbStack"
+	default:
+		return "Docker Engine"
 	}
 }
 

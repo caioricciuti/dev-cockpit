@@ -191,12 +191,12 @@ func (m *Model) renderHeader() string {
 	tabStyle := lipgloss.NewStyle().
 		Padding(0, 2)
 
-	activeTabStyle := tabStyle.Copy().
+	activeTabStyle := tabStyle.
 		Bold(true).
 		Foreground(lipgloss.Color("#000")).
 		Background(lipgloss.Color("#00D9FF"))
 
-	inactiveTabStyle := tabStyle.Copy().
+	inactiveTabStyle := tabStyle.
 		Foreground(lipgloss.Color("#888"))
 
 	var tabs []string

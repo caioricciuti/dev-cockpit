@@ -2,7 +2,11 @@
 
 package network
 
-import "os/exec"
+import (
+	"context"
+	"os/exec"
+	"time"
+)
 
 const (
 	pingBin       = "/sbin/ping"
@@ -13,7 +17,9 @@ const (
 )
 
 func getDefaultGateway() string {
-	out, err := exec.Command("sh", "-c", "route get default | awk '/gateway/{print $2}'").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "sh", "-c", "route get default | awk '/gateway/{print $2}'").Output()
 	if err != nil {
 		return ""
 	}

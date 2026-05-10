@@ -3,8 +3,10 @@
 package network
 
 import (
+	"context"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,7 +18,9 @@ const (
 )
 
 func getDefaultGateway() string {
-	out, err := exec.Command("sh", "-c", "ip route show default | awk '{print $3}'").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "sh", "-c", "ip route show default | awk '{print $3}'").Output()
 	if err != nil {
 		return ""
 	}

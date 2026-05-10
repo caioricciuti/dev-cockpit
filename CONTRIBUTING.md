@@ -79,7 +79,7 @@ git push origin feature/my-new-feature
 ### Prerequisites
 
 - macOS 11.0+ running on Apple Silicon (M1/M2/M3)
-- Go 1.21 or newer (`brew install go`)
+- Go 1.25 or newer (`brew install go`)
 - Xcode Command Line Tools (`xcode-select --install`)
 
 ### Setting Up the Environment

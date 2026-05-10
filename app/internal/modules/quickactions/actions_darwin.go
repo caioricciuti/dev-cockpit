@@ -151,7 +151,7 @@ func (m *Model) killHeavyProcesses() error {
 	cmd := "ps aux | awk '$3 > 80 && NR > 1 {print $2}' | head -5"
 	output, err := runShellWithTimeoutOutput(shortCommandTimeout, cmd)
 	if err != nil {
-		return fmt.Errorf("failed to get heavy processes: %v", err)
+		return fmt.Errorf("failed to get heavy processes: %w", err)
 	}
 
 	pids := strings.Fields(strings.TrimSpace(string(output)))
@@ -208,7 +208,7 @@ func (m *Model) rebuildLaunchServices() error {
 
 	if err != nil {
 		logger.Error("Failed to rebuild launch services: %v", err)
-		return fmt.Errorf("failed to rebuild launch services: %v", err)
+		return fmt.Errorf("failed to rebuild launch services: %w", err)
 	}
 
 	logger.Info("Launch Services rebuild completed")
@@ -627,7 +627,7 @@ func (m *Model) cleanDownloads() error {
 
 	if err != nil {
 		logger.Error("Failed to clean Downloads: %v", err)
-		return fmt.Errorf("failed to clean downloads: %v", err)
+		return fmt.Errorf("failed to clean downloads: %w", err)
 	}
 
 	afterOutput, _ := runCommandWithTimeoutOutput(shortCommandTimeout, "find", downloadsPath, "-type", "f", "-mtime", "+30")

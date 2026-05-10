@@ -383,7 +383,7 @@ func (m *Model) fetchDockerLogs() tea.Cmd {
 				view: ViewDocker,
 				note: "Docker not available or not running",
 				lines: []LogLine{{
-					Content: "Docker is not running or not installed.",
+					Content: "Docker is not running or not installed. Supports Docker Desktop and OrbStack.",
 					Level:   LevelWarn,
 				}},
 			}

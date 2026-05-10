@@ -87,7 +87,7 @@ get_latest_release() {
 
     if [[ -z "$LATEST_TAG" ]]; then
         print_warning "Could not fetch latest release, using default version"
-        LATEST_TAG="v1.0.0"
+        LATEST_TAG="v2.1.0"
     fi
 
     print_info "Latest version: $LATEST_TAG"

@@ -3,12 +3,16 @@
 package security
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+const cmdTimeout = 5 * time.Second
 
 func (m *Model) refresh() tea.Cmd {
 	return func() tea.Msg {
@@ -21,11 +25,13 @@ func (m *Model) refresh() tea.Cmd {
 }
 
 func readFirewall() string {
-	out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").CombinedOutput()
 	if err == nil {
 		return strings.TrimSpace(string(out))
 	}
-	out, err = exec.Command("defaults", "read", "/Library/Preferences/com.apple.alf", "globalstate").CombinedOutput()
+	out, err = exec.CommandContext(ctx, "defaults", "read", "/Library/Preferences/com.apple.alf", "globalstate").CombinedOutput()
 	if err != nil {
 		return "Unknown"
 	}
@@ -43,7 +49,9 @@ func readFirewall() string {
 }
 
 func readCmd(name string, args ...string) string {
-	out, err := exec.Command(name, args...).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), cmdTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	if err != nil {
 		return fmt.Sprintf("%s error", name)
 	}
