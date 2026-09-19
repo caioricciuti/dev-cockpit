@@ -12,7 +12,7 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	gnet "github.com/shirou/gopsutil/v3/net"
+	gnet "github.com/shirou/gopsutil/v4/net"
 )
 
 // ViewMode represents different network views
