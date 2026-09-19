@@ -86,8 +86,13 @@ get_latest_release() {
     LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
     if [[ -z "$LATEST_TAG" ]]; then
-        print_warning "Could not fetch latest release, using default version"
-        LATEST_TAG="v2.1.0"
+        # Falling back to a hard-coded tag silently installed whatever version
+        # happened to be current when this script was last edited, which went
+        # stale on every release. Better to stop and say so.
+        print_error "Could not determine the latest release from the GitHub API."
+        print_error "Check your network, or install a specific version manually:"
+        print_error "  https://github.com/$REPO/releases"
+        exit 1
     fi
 
     print_info "Latest version: $LATEST_TAG"

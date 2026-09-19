@@ -72,7 +72,7 @@ func main() {
 			}
 
 			// Perform uninstallation
-			if err := uninstaller.Uninstall(force); err != nil {
+			if err := uninstaller.Uninstall(force, version); err != nil {
 				fmt.Printf("Uninstall failed: %v\n", err)
 				os.Exit(1)
 			}

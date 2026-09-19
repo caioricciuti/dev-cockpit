@@ -30,8 +30,8 @@ const (
 )
 
 // Uninstall performs the complete uninstallation process
-func Uninstall(force bool) error {
-	printBanner()
+func Uninstall(force bool, version string) error {
+	printBanner(version)
 
 	if !force {
 		if !confirmUninstall() {
@@ -60,11 +60,21 @@ func Uninstall(force bool) error {
 	return nil
 }
 
-func printBanner() {
+// printBanner takes the running version rather than a literal that has to be
+// remembered on every release.
+func printBanner(version string) {
+	title := fmt.Sprintf("Dev Cockpit Uninstaller v%s", version)
+	const inner = 44
+	pad := inner - len(title)
+	if pad < 0 {
+		pad = 0
+	}
+	left := pad / 2
+	right := pad - left
 	fmt.Println()
-	fmt.Printf("%s╔════════════════════════════════════════════╗%s\n", colorBlue, colorNC)
-	fmt.Printf("%s║      Dev Cockpit Uninstaller v2.1.0       ║%s\n", colorBlue, colorNC)
-	fmt.Printf("%s╚════════════════════════════════════════════╝%s\n", colorBlue, colorNC)
+	fmt.Printf("%s╔%s╗%s\n", colorBlue, strings.Repeat("═", inner), colorNC)
+	fmt.Printf("%s║%s%s%s║%s\n", colorBlue, strings.Repeat(" ", left), title, strings.Repeat(" ", right), colorNC)
+	fmt.Printf("%s╚%s╝%s\n", colorBlue, strings.Repeat("═", inner), colorNC)
 	fmt.Println()
 }
 

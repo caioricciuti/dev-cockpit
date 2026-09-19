@@ -42,7 +42,7 @@ devcockpit status
 ```
 
 ```
-Dev Cockpit v2.1.0 — Quick Status
+Dev Cockpit v3.0.0 — Quick Status
 ───────────────────────────────
   CPU                8.9%
   Memory             64.0% (10.2 GB / 16.0 GB)
