@@ -216,12 +216,17 @@ CONFIGURATION:
   Logs:   ~/.devcockpit/debug.log
 
 KEYBOARD SHORTCUTS (in TUI):
-  1-9         Jump to module
-  Tab         Cycle through modules
-  ↑/↓         Navigate lists
-  Enter       Select/Execute
-  ESC         Go back / Close modal
-  q, Ctrl+C   Quit
+  Tab, →         Next module
+  Shift+Tab, ←   Previous module
+  Home, End      First / last module
+  Enter          Focus the current module, then select inside it
+  ESC            Leave a focused module, or close a prompt
+  ↑/↓, j/k       Navigate lists
+  1-5            Switch sub-views inside a module
+  ?              Help overlay
+  l              Log overlay
+  q              Quit
+  Ctrl+C         Quit from anywhere
 
 DOCUMENTATION:
   Website: https://devcockpit.app
