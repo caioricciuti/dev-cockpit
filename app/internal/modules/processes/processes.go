@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // SortField defines how processes are sorted
 type SortField int
 
 const (
-	SortByCPU  SortField = iota
+	SortByCPU SortField = iota
 	SortByMem
 	SortByPID
 	SortByName

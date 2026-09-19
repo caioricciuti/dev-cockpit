@@ -15,8 +15,8 @@ export default defineConfig({
       "script",
       {
         defer: "",
-        "data-site": "site_207ed1aa913a3eac",
-        src: "https://light.yaat.io/s.js",
+        src: "https://a.caioricciuti.com/b.js",
+        "data-website-id": "4322d182-2ae0-40c4-ba2f-0587de08d1ee",
       },
     ],
   ],
@@ -27,6 +27,14 @@ export default defineConfig({
     nav: [
       { text: "Home", link: "/" },
       { text: "Getting Started", link: "/getting-started" },
+      {
+        text: "Reference",
+        items: [
+          { text: "Modules", link: "/modules" },
+          { text: "CLI", link: "/cli" },
+          { text: "Configuration", link: "/configuration" },
+        ],
+      },
       { text: "Donate", link: "https://buymeacoffee.com/caioricciuti" },
     ],
 
@@ -36,6 +44,14 @@ export default defineConfig({
         items: [
           { text: "Quick Start", link: "/getting-started" },
           { text: "Troubleshooting", link: "/troubleshooting" },
+        ],
+      },
+      {
+        text: "Reference",
+        items: [
+          { text: "Modules", link: "/modules" },
+          { text: "CLI Reference", link: "/cli" },
+          { text: "Configuration", link: "/configuration" },
         ],
       },
       {

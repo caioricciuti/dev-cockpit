@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/cleanup"
@@ -25,8 +27,6 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/storage"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // Module represents a tab in the application
@@ -278,7 +278,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the application
-func (m *Model) View() string {
+// View satisfies tea.Model. bubbletea v2 renders a tea.View rather than a
+// plain string, so the existing rendering stays in render() and this only
+// adapts the interface boundary.
+func (m *Model) View() tea.View {
+	v := tea.NewView(m.render())
+	// v1 set these as ProgramOptions; v2 declares them per render.
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (m *Model) render() string {
 	if m.quitting {
 		return "Thanks for using Dev Cockpit!\n"
 	}
@@ -340,9 +351,36 @@ func (m *Model) renderTabs() string {
 		return ""
 	}
 
-	// Reserve space for borders and padding in tab bar
-	availableWidth := m.width - 8 // margins and borders
-	tabWidth := (availableWidth / numTabs) - 2 // spacing between tabs
+	// Size tabs from the longest label rather than by dividing the width
+	// between them. Dividing meant every label was cut to ten cells even on a
+	// wide terminal, so "Dashboard" showed as "Dashb..." with room to spare.
+	const markerWidth = 2 // the "◎ " or "◉ " marker on the active tab
+	const hPadding = 2    // Padding(0, 1) on each side
+
+	longest := 0
+	for _, module := range m.modules {
+		if w := lipgloss.Width(module.Title()); w > longest {
+			longest = w
+		}
+	}
+
+	availableWidth := m.width - 4 // the bar's own Padding(1, 2)
+	if availableWidth < 1 {
+		availableWidth = 1
+	}
+
+	tabWidth := longest + markerWidth + hPadding
+
+	// Tabs wrap onto further rows, which costs content height. Keep them to
+	// two rows by shrinking, and only then start truncating labels.
+	perRow := availableWidth / tabWidth
+	if perRow < 1 {
+		perRow = 1
+	}
+	if rows := (numTabs + perRow - 1) / perRow; rows > 2 {
+		tabsPerRow := (numTabs + 1) / 2
+		tabWidth = availableWidth / tabsPerRow
+	}
 	if tabWidth < 12 {
 		tabWidth = 12 // minimum width
 	}
@@ -390,10 +428,27 @@ func (m *Model) renderTabs() string {
 		tabs = append(tabs, style.Render(components.TruncateString(label, tabWidth-2)))
 	}
 
-	tabRow := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+	// Lay the rows out explicitly. Joining all tabs into one long row and
+	// letting the outer Width wrap it overflowed by a cell, because
+	// lipgloss.Width sets a minimum rather than a maximum.
+	tabsPerRow := availableWidth / tabWidth
+	if tabsPerRow < 1 {
+		tabsPerRow = 1
+	}
+
+	var rows []string
+	for start := 0; start < len(tabs); start += tabsPerRow {
+		end := start + tabsPerRow
+		if end > len(tabs) {
+			end = len(tabs)
+		}
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, tabs[start:end]...))
+	}
+	tabRow := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
 	return lipgloss.NewStyle().
 		Width(m.width).
+		MaxWidth(m.width).
 		Background(styles.Theme.Background).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
@@ -433,17 +488,64 @@ func (m *Model) renderFooter() string {
 			Render(" [FOCUSED]")
 	}
 
-	shortcuts := "Tab Switch • Enter Focus • Esc Back • ? Help • L Logs • Q Quit"
+	// Shortcut hints, longest first. The first tier that leaves room for the
+	// version on the left and the clock on the right is the one shown, so a
+	// narrow terminal loses hints rather than wrapping the footer onto a
+	// second line.
+	shortcutTiers := []string{
+		"Tab Switch • Enter Focus • Esc Back • ? Help • L Logs • Q Quit",
+		"Tab • Enter • Esc • ? Help • L Logs • Q Quit",
+		"Tab • Enter • ? Help • Q Quit",
+		"? Help • Q Quit",
+		"? • Q",
+		"",
+	}
+
 	info := versionStyle.Render(fmt.Sprintf("Dev Cockpit v%s", m.version)) + focusIndicator
-	left := fmt.Sprintf("%s  │  %s", info, shortcutsStyle.Render(shortcuts))
 	status := statusStyle.Render(fmt.Sprintf("⟳ %s", m.lastUpdate.Format("15:04:05")))
 
-	// Calculate spacing dynamically
-	leftLen := lipgloss.Width(left)
-	rightLen := lipgloss.Width(status)
-	spacer := m.width - leftLen - rightLen - 6
-	if spacer < 0 {
-		spacer = 0
+	// Padding(0, 2) on both sides is the only horizontal chrome.
+	inner := m.width - 4
+	if inner < 0 {
+		inner = 0
+	}
+
+	// Always keep a visible gap so the clock never butts against the hints.
+	const minGap = 2
+
+	buildLeft := func(tier string) string {
+		if tier == "" {
+			return info
+		}
+		return fmt.Sprintf("%s  │  %s", info, shortcutsStyle.Render(tier))
+	}
+
+	left := info
+	showStatus := true
+	for _, tier := range shortcutTiers {
+		candidate := buildLeft(tier)
+		if lipgloss.Width(candidate)+minGap+lipgloss.Width(status) <= inner {
+			left = candidate
+			break
+		}
+		left = candidate
+	}
+
+	// Even the version alone plus the clock can be too wide on a very narrow
+	// terminal. Drop the clock before allowing a wrap.
+	if lipgloss.Width(left)+minGap+lipgloss.Width(status) > inner {
+		showStatus = false
+	}
+
+	if !showStatus {
+		return footerStyle.Render(
+			lipgloss.NewStyle().MaxWidth(inner).Render(left),
+		)
+	}
+
+	spacer := inner - lipgloss.Width(left) - lipgloss.Width(status)
+	if spacer < minGap {
+		spacer = minGap
 	}
 
 	return footerStyle.Render(
@@ -577,7 +679,7 @@ func (m *Model) renderHint(width int) string {
 
 func (m *Model) renderHelp() string {
 	boxStyle := lipgloss.NewStyle().
-		Width(m.width - 10).
+		Width(m.width-10).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#00D9FF")).
 		Background(lipgloss.Color("#0F1419")).

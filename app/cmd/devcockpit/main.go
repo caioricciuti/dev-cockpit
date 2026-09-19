@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/app"
 	"github.com/caioricciuti/dev-cockpit/internal/cli"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
@@ -12,7 +13,6 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/modules/quickactions"
 	"github.com/caioricciuti/dev-cockpit/internal/uninstaller"
 	"github.com/caioricciuti/dev-cockpit/internal/updater"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // version is injected at build time via -ldflags
@@ -72,7 +72,7 @@ func main() {
 			}
 
 			// Perform uninstallation
-			if err := uninstaller.Uninstall(force); err != nil {
+			if err := uninstaller.Uninstall(force, version); err != nil {
 				fmt.Printf("Uninstall failed: %v\n", err)
 				os.Exit(1)
 			}
@@ -144,11 +144,9 @@ func main() {
 	defer application.Close()
 
 	// Initialize Bubble Tea program
-	p := tea.NewProgram(
-		application,
-		tea.WithAltScreen(),       // Use alternate screen buffer
-		tea.WithMouseCellMotion(), // Enable mouse support
-	)
+	// bubbletea v2 moved alt screen and mouse mode off ProgramOption and onto
+	// the View returned each render; see (*app.Model).View.
+	p := tea.NewProgram(application)
 
 	// Run the program
 	if _, err := p.Run(); err != nil {
@@ -218,12 +216,17 @@ CONFIGURATION:
   Logs:   ~/.devcockpit/debug.log
 
 KEYBOARD SHORTCUTS (in TUI):
-  1-9         Jump to module
-  Tab         Cycle through modules
-  ↑/↓         Navigate lists
-  Enter       Select/Execute
-  ESC         Go back / Close modal
-  q, Ctrl+C   Quit
+  Tab, →         Next module
+  Shift+Tab, ←   Previous module
+  Home, End      First / last module
+  Enter          Focus the current module, then select inside it
+  ESC            Leave a focused module, or close a prompt
+  ↑/↓, j/k       Navigate lists
+  1-5            Switch sub-views inside a module
+  ?              Help overlay
+  l              Log overlay
+  q              Quit
+  Ctrl+C         Quit from anywhere
 
 DOCUMENTATION:
   Website: https://devcockpit.app

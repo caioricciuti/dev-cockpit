@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: darwin
+            runner: macos-latest
+          - os: linux
+            runner: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: app/go.sum
+
+      # Fails if go.mod or go.sum would change, which is how the unrequested
+      # dependency drift on this repo went unnoticed before.
+      - name: Verify go.mod and go.sum are tidy
+        working-directory: ./app
+        run: |
+          go mod tidy -diff
+
+      - name: Verify module checksums
+        working-directory: ./app
+        run: go mod verify
+
+      - name: Check formatting
+        working-directory: ./app
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        working-directory: ./app
+        run: go vet ./...
+
+      - name: Test
+        working-directory: ./app
+        run: go test -race -cover ./...
+
+      - name: Build
+        working-directory: ./app
+        run: go build ./...
+
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      # Lockfile-faithful: CI must never resolve a version the lockfile
+      # does not already pin.
+      - name: Install dependencies
+        working-directory: ./docs
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        working-directory: ./docs
+        run: bun run docs:build

@@ -26,7 +26,7 @@ dev-cockpit/
 ### Quick Install (Recommended)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/install.sh | bash
 ```
 
 This will:

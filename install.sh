@@ -86,11 +86,27 @@ get_latest_release() {
     LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
     if [[ -z "$LATEST_TAG" ]]; then
-        print_warning "Could not fetch latest release, using default version"
-        LATEST_TAG="v2.1.0"
+        # Falling back to a hard-coded tag silently installed whatever version
+        # happened to be current when this script was last edited, which went
+        # stale on every release. Better to stop and say so.
+        print_error "Could not determine the latest release from the GitHub API."
+        print_error "Check your network, or install a specific version manually:"
+        print_error "  https://github.com/$REPO/releases"
+        exit 1
     fi
 
     print_info "Latest version: $LATEST_TAG"
+}
+
+# Create a private working directory and make sure it is cleaned up on exit.
+# mktemp avoids the predictable /tmp path the previous version used, which
+# another local user could have pre-created or symlinked.
+setup_temp_dir() {
+    TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/devcockpit-install.XXXXXXXX") || {
+        print_error "Failed to create a temporary directory"
+        exit 1
+    }
+    trap 'rm -rf "$TEMP_DIR"' EXIT INT TERM
 }
 
 # Download binary
@@ -98,10 +114,12 @@ download_binary() {
     print_info "Downloading Dev Cockpit..."
 
     DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${PLATFORM_BINARY}"
-    TEMP_FILE="/tmp/${BINARY_NAME}-$$"
+    TEMP_FILE="$TEMP_DIR/${PLATFORM_BINARY}"
 
     if command -v curl &> /dev/null; then
-        curl -L -f -o "$TEMP_FILE" "$DOWNLOAD_URL" 2>&1 | grep -v "^$" || {
+        # Not piped into anything: a pipeline would report the last command's
+        # status and curl's failure would be swallowed.
+        curl -fsSL -o "$TEMP_FILE" "$DOWNLOAD_URL" || {
             print_error "Failed to download Dev Cockpit"
             print_error "URL: $DOWNLOAD_URL"
             exit 1
@@ -120,41 +138,55 @@ download_binary() {
 }
 
 # Verify checksum
+#
+# This fails closed. Every release publishes a .sha256 alongside the binary, so
+# a missing checksum file, an unreadable one, or a missing checksum tool means
+# something is wrong with the download and not that verification is optional.
+# An unverified binary is never installed.
 verify_checksum() {
     print_info "Verifying checksum..."
 
     CHECKSUM_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/${PLATFORM_BINARY}.sha256"
+    CHECKSUM_FILE="$TEMP_DIR/${PLATFORM_BINARY}.sha256"
 
-    if curl -s -L -f "$CHECKSUM_URL" -o /tmp/devcockpit-checksum-$$ 2>/dev/null; then
-        EXPECTED_CHECKSUM=$(cat /tmp/devcockpit-checksum-$$ | awk '{print $1}')
-
-        # Use appropriate checksum tool
-        if command -v sha256sum &> /dev/null; then
-            ACTUAL_CHECKSUM=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
-        elif command -v shasum &> /dev/null; then
-            ACTUAL_CHECKSUM=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
-        else
-            print_warning "No checksum tool found, skipping verification"
-            rm -f /tmp/devcockpit-checksum-$$
-            return
-        fi
-
-        if [[ "$EXPECTED_CHECKSUM" == "$ACTUAL_CHECKSUM" ]]; then
-            print_success "Checksum verified"
-        else
-            print_error "Checksum verification failed!"
-            print_error "Expected: $EXPECTED_CHECKSUM"
-            print_error "Actual:   $ACTUAL_CHECKSUM"
-            print_error "The downloaded file may be corrupted or tampered with."
-            print_error "Aborting installation for security."
-            rm -f /tmp/devcockpit-checksum-$$
-            rm -f "$TEMP_FILE"
-            exit 1
-        fi
-        rm -f /tmp/devcockpit-checksum-$$
-    else
-        print_warning "Checksum file not available, skipping verification"
+    if ! curl -s -L -f "$CHECKSUM_URL" -o "$CHECKSUM_FILE"; then
+        print_error "Could not download the checksum file."
+        print_error "URL: $CHECKSUM_URL"
+        print_error "Refusing to install an unverified binary."
+        exit 1
     fi
+
+    EXPECTED_CHECKSUM=$(awk '{print $1}' "$CHECKSUM_FILE" | tr '[:upper:]' '[:lower:]')
+
+    if [[ ! "$EXPECTED_CHECKSUM" =~ ^[0-9a-f]{64}$ ]]; then
+        print_error "The checksum file is not a valid SHA-256 digest."
+        print_error "Refusing to install an unverified binary."
+        exit 1
+    fi
+
+    # Use appropriate checksum tool
+    if command -v sha256sum &> /dev/null; then
+        ACTUAL_CHECKSUM=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
+    elif command -v shasum &> /dev/null; then
+        ACTUAL_CHECKSUM=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
+    else
+        print_error "Neither sha256sum nor shasum is available."
+        print_error "Cannot verify the download, so nothing will be installed."
+        exit 1
+    fi
+
+    ACTUAL_CHECKSUM=$(echo "$ACTUAL_CHECKSUM" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]]; then
+        print_error "Checksum verification failed!"
+        print_error "Expected: $EXPECTED_CHECKSUM"
+        print_error "Actual:   $ACTUAL_CHECKSUM"
+        print_error "The downloaded file may be corrupted or tampered with."
+        print_error "Aborting installation for security."
+        exit 1
+    fi
+
+    print_success "Checksum verified"
 }
 
 # Install binary
@@ -205,6 +237,7 @@ main() {
     echo -e "${BLUE}Dev Cockpit Installer${NC}"
     echo ""
 
+    setup_temp_dir
     detect_platform
     get_latest_release
     download_binary

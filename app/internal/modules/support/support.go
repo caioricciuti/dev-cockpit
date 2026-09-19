@@ -5,9 +5,9 @@ import (
 	"os/exec"
 	"runtime"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (

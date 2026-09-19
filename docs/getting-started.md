@@ -26,14 +26,16 @@ Before installing Dev Cockpit, ensure your system meets these requirements:
 The easiest way to install Dev Cockpit is using our installation script:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/install.sh)"
+curl -fsSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/install.sh | bash
 ```
 
 This script will:
-1. Download the latest release binary
-2. Install it to `/usr/local/bin/devcockpit`
-3. Make it executable
-4. Verify the installation
+1. Detect your platform and download the matching release binary
+2. Download the published SHA-256 checksum and verify the binary against it
+3. Install it to `/usr/local/bin/devcockpit` and make it executable
+
+Verification is not optional. If the checksum is missing, unreadable or
+does not match, the installer aborts and installs nothing.
 
 ### Manual Installation
 
@@ -103,54 +105,47 @@ On first run, Dev Cockpit will:
 
 ## Interface Overview
 
-Dev Cockpit uses a Text User Interface (TUI) with the following layout:
+Dev Cockpit is thirteen modules behind one window: a tab bar across the top,
+the active module below it.
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Dashboard | Cleanup | Packages | ...       │  ← Module Tabs
+│  Dashboard | Processes | Services | ...     │  ← Module tabs
 ├─────────────────────────────────────────────┤
 │                                             │
-│          Module Content Area                │
-│                                             │
+│            Module content                   │
 │                                             │
 └─────────────────────────────────────────────┘
 ```
 
 ### Navigation
 
-**Module Switching:**
-- **Number keys (1-9):** Jump directly to a module
-- **Tab:** Cycle through modules
-- **← →:** Navigate left/right between modules
+The interface has **two levels**, and this is the thing worth learning first.
 
-**Module Navigation:**
-- **↑ ↓:** Move up/down in lists
-- **Enter:** Select/execute current item
-- **Space:** Alternative select key
-- **ESC:** Go back / Close modal / Return to switcher
+At the **browse** level you move between modules. Press `Enter` to **focus**
+one, and from then on that module receives every key. `Esc` hands control
+back to browsing.
 
-**General:**
-- **q or Ctrl+C:** Quit Dev Cockpit
-- **?:** Show help (where available)
+If a key seems to do nothing, you are usually at the wrong level. Press `Esc`
+until you are browsing again.
 
-## Modules
+| Key | Action |
+| --- | --- |
+| `Tab`, `→` | Next module |
+| `Shift+Tab`, `←` | Previous module |
+| `Home` / `End` | First / last module |
+| `Enter` | Focus the current module |
+| `Esc` | Leave a focused module |
+| `?` | Help overlay |
+| `l` | Log overlay |
+| `q` | Quit |
+| `Ctrl+C` | Quit from anywhere, including inside a module |
 
-Dev Cockpit includes these modules:
+Inside a focused module, `j`/`k` or the arrows move, `Enter` selects and `r`
+refreshes. Number keys switch that module's own sub-views; they do not jump
+between modules.
 
-1. **Dashboard** - Real-time system monitoring (CPU, GPU, Memory, Disk, Network)
-2. **Cleanup** - Remove system junk and free up disk space
-3. **Packages** - Manage Homebrew, npm, and other package managers
-4. **Docker** - Monitor and manage Docker containers
-5. **Process Manager** - View and manage running processes
-6. **Dev Services** - Monitor Homebrew services and dev tools
-7. **Quick Actions** - Common system fix tasks (platform-aware)
-8. **Network** - Network diagnostics, port scanning, and quality tests
-9. **Security** - Security audits (Firewall, Disk Encryption, SIP/Gatekeeper on macOS)
-10. **System** - System information and diagnostics
-11. **Diagnostics** - Automated health check with A-F grading
-12. **Logs** - Aggregated log viewer (system, Homebrew, Docker, app)
-13. **Metrics** - Historical performance tracking with SQLite
-14. **Support** - Support the project
+Every module and its individual keys is listed in [Modules](/modules).
 
 ## Package Manager Detection
 
@@ -181,59 +176,31 @@ Dev Cockpit automatically detects and integrates with:
 
 ## Configuration
 
-Dev Cockpit stores its configuration in `~/.devcockpit/`:
+Configuration lives in `~/.devcockpit/`:
 
 ```
 ~/.devcockpit/
-├── config.yaml      # Main configuration
-└── debug.log        # Debug logs (if --debug enabled)
+├── config.yaml      # Settings, all optional
+├── debug.log        # Written when --debug is used
+└── data/            # Metrics history
 ```
 
-Currently, most settings are auto-detected and don't require manual configuration.
+Every setting has a default, so the file is optional and anything you leave
+out keeps its default. The full schema is in
+[Configuration](/configuration).
 
 ## CLI Commands
 
-Dev Cockpit supports command-line arguments:
+Every read-only view has a command-line equivalent, and output is plain text
+when piped or redirected:
 
-**Display help:**
 ```bash
-devcockpit --help
-devcockpit -h
+devcockpit status    # health score and key metrics
+devcockpit diag      # full diagnostics report
+devcockpit ps        # top processes by CPU
 ```
 
-**Show version:**
-```bash
-devcockpit --version
-devcockpit -v
-```
-
-**Enable debug mode:**
-```bash
-devcockpit --debug
-```
-
-**CLI Power Mode:**
-```bash
-devcockpit status          # Quick system health overview
-devcockpit diag            # Full diagnostics report
-devcockpit ps              # Top processes by CPU
-devcockpit ps --sort mem   # Top processes by memory
-devcockpit services        # Homebrew services status
-devcockpit security        # Security check
-devcockpit cleanup list    # Cache sizes
-devcockpit cleanup empty-trash  # Empty trash
-```
-
-**Uninstall Dev Cockpit:**
-```bash
-devcockpit uninstall              # Interactive uninstall with prompts
-devcockpit uninstall --force      # Uninstall without confirmation
-```
-
-**Show log file location:**
-```bash
-devcockpit --logs
-```
+All commands and flags are in the [CLI Reference](/cli).
 
 ## Tips for Best Experience
 
@@ -264,12 +231,14 @@ devcockpit --logs
 
 ## Next Steps
 
-Now that you have Dev Cockpit installed:
+- **[Modules](/modules)** — what each of the thirteen screens does, and the
+  keys it responds to
+- **[CLI Reference](/cli)** — every command, flag and output format
+- **[Configuration](/configuration)** — every setting and its default
+- **[Troubleshooting](/troubleshooting)** — when something misbehaves
 
-1. **Explore the Dashboard** to see your system metrics in real-time
-2. **Run a Cleanup** to free up disk space
-3. **Check your Packages** to see what's installed
-4. **Customize your terminal** for the best visual experience
+If you only do one thing next, press `?` inside the app for the help overlay,
+then `Enter` on the Dashboard to focus it.
 
 ## Troubleshooting
 

@@ -17,7 +17,7 @@ const (
 
 // Update performs the complete update process
 func Update(opts UpdateOptions) error {
-	printBanner()
+	printBanner(opts.CurrentVer)
 
 	// Step 1: Show current version
 	printInfo(fmt.Sprintf("Current version: v%s", opts.CurrentVer))
@@ -106,11 +106,21 @@ func Update(opts UpdateOptions) error {
 
 // Helper functions for output
 
-func printBanner() {
+// printBanner takes the running version rather than a literal, which used to
+// go stale and contradict the "Current version" line printed just below it.
+func printBanner(version string) {
+	title := fmt.Sprintf("Dev Cockpit Updater v%s", version)
+	const inner = 44
+	pad := inner - len(title)
+	if pad < 0 {
+		pad = 0
+	}
+	left := pad / 2
+	right := pad - left
 	fmt.Println()
-	fmt.Printf("%s╔════════════════════════════════════════════╗%s\n", colorBlue, colorNC)
-	fmt.Printf("%s║      Dev Cockpit Updater v2.1.0           ║%s\n", colorBlue, colorNC)
-	fmt.Printf("%s╚════════════════════════════════════════════╝%s\n", colorBlue, colorNC)
+	fmt.Printf("%s╔%s╗%s\n", colorBlue, strings.Repeat("═", inner), colorNC)
+	fmt.Printf("%s║%s%s%s║%s\n", colorBlue, strings.Repeat(" ", left), title, strings.Repeat(" ", right), colorNC)
+	fmt.Printf("%s╚%s╝%s\n", colorBlue, strings.Repeat("═", inner), colorNC)
 	fmt.Println()
 }
 

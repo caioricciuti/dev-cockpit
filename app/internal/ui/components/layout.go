@@ -1,7 +1,7 @@
 package components
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Layout manages terminal space and prevents overflow
@@ -30,7 +30,7 @@ func NewLayout(width, height int) *Layout {
 	}
 
 	// Calculate available content space (with safety margin)
-	l.ContentWidth = width - 4  // margin on sides
+	l.ContentWidth = width - 4 // margin on sides
 	if l.ContentWidth < 40 {
 		l.ContentWidth = 40 // minimum
 	}

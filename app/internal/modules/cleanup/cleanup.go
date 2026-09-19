@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // CleanupTarget represents a cleanable target
@@ -91,7 +91,11 @@ func (m *Model) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 				m.cursor++
 			}
 
-		case " ":
+		// bubbletea v1 stringified the space key as " ". v2 routes it through
+		// Keystroke(), which returns "space", because its String() explicitly
+		// excludes a single space from the text path. Both are accepted so the
+		// binding does not depend on which one the runtime produces.
+		case " ", "space":
 			// Toggle selection
 			m.targets[m.cursor].Selected = !m.targets[m.cursor].Selected
 

@@ -2,9 +2,10 @@ package components
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // MetricCard renders a metric display card (for dashboard)
@@ -25,7 +26,7 @@ func (m *MetricCard) Render() string {
 	styles := NewBaseStyles()
 
 	// Determine border color based on status level
-	var borderColor lipgloss.Color
+	var borderColor color.Color
 	switch m.StatusLevel {
 	case "error":
 		borderColor = styles.Theme.Error

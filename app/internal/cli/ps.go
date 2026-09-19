@@ -98,7 +98,7 @@ func cmdPS(args []string) {
 	}
 
 	// Print table
-	fmt.Printf("  %-7s  %-6s  %-6s  %-9s  %-12s  %s\n",
+	fmt.Fprintf(stdout, "  %-7s  %-6s  %-6s  %-9s  %-12s  %s\n",
 		mutedStyle.Render("PID"),
 		mutedStyle.Render("CPU%"),
 		mutedStyle.Render("MEM%"),
@@ -106,7 +106,7 @@ func cmdPS(args []string) {
 		mutedStyle.Render("USER"),
 		mutedStyle.Render("NAME"),
 	)
-	fmt.Printf("  %s\n", mutedStyle.Render(strings.Repeat("─", 60)))
+	fmt.Fprintf(stdout, "  %s\n", mutedStyle.Render(strings.Repeat("─", 60)))
 
 	for _, p := range procs {
 		cpuColor := okStyle
@@ -119,7 +119,7 @@ func cmdPS(args []string) {
 		rssMB := float64(p.rss) / 1024
 		rssStr := fmt.Sprintf("%.0f MB", rssMB)
 
-		fmt.Printf("  %-7d  %s  %-6.1f  %-9s  %-12s  %s\n",
+		fmt.Fprintf(stdout, "  %-7d  %s  %-6.1f  %-9s  %-12s  %s\n",
 			p.pid,
 			cpuColor.Render(fmt.Sprintf("%-6.1f", p.cpu)),
 			p.mem,
@@ -128,5 +128,5 @@ func cmdPS(args []string) {
 			p.name,
 		)
 	}
-	fmt.Println()
+	fmt.Fprintln(stdout)
 }

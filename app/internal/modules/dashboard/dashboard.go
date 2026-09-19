@@ -7,23 +7,23 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/storage"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/disk"
-	"github.com/shirou/gopsutil/v3/host"
-	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/host"
+	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
 )
 
 // ViewMode for switching between live and historical views
 type ViewMode int
 
 const (
-	ViewLive    ViewMode = iota
+	ViewLive ViewMode = iota
 	ViewHist1h
 	ViewHist6h
 	ViewHist24h
@@ -37,7 +37,10 @@ type Model struct {
 	height int
 
 	// System metrics
-	cpuPercent    []float64
+	cpuPercent []float64
+	// metricsLoaded is false until the first sample arrives, so the view can
+	// say so instead of showing a confident 0.0%.
+	metricsLoaded bool
 	cpuHistory    []float64
 	memoryPercent float64
 	memoryHistory []float64
@@ -247,7 +250,13 @@ func (m *Model) renderMetrics() string {
 
 	// Separator line
 	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#444"))
-	separator := separatorStyle.Render(strings.Repeat("━", 60))
+	// The module renders inside the layout content area, which is inset from
+	// the terminal edge on both sides.
+	sepWidth := m.width - 8
+	if sepWidth < 20 {
+		sepWidth = 20
+	}
+	separator := separatorStyle.Render(strings.Repeat("━", sepWidth))
 
 	// Label styles
 	labelStyle := lipgloss.NewStyle().
@@ -266,6 +275,14 @@ func (m *Model) renderMetrics() string {
 	errorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FF6B6B"))
 
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#666"))
+
+	// Until the first sample lands, report that rather than implying zero.
+	loading := !m.metricsLoaded
+	const pending = "—"
+	const pendingStatus = "○ measuring"
+
 	// Build metrics lines
 	lines := []string{
 		separator,
@@ -275,7 +292,10 @@ func (m *Model) renderMetrics() string {
 	// CPU Metric
 	cpuStatus := "● Normal"
 	cpuStatusStyle := statusStyle
-	if avgCPU >= 85 {
+	cpuValue := fmt.Sprintf("%.1f%%", avgCPU)
+	if loading {
+		cpuValue, cpuStatus, cpuStatusStyle = pending, pendingStatus, mutedStyle
+	} else if avgCPU >= 85 {
 		cpuStatus = "● Critical"
 		cpuStatusStyle = errorStyle
 	} else if avgCPU >= 70 {
@@ -283,7 +303,7 @@ func (m *Model) renderMetrics() string {
 		cpuStatusStyle = warningStyle
 	}
 	lines = append(lines,
-		labelStyle.Render("⚡ CPU: ")+valueStyle.Render(fmt.Sprintf("%.1f%%", avgCPU)),
+		labelStyle.Render("⚡ CPU: ")+valueStyle.Render(cpuValue),
 		m.renderProgressBar(avgCPU)+" "+cpuStatusStyle.Render(cpuStatus),
 		"",
 	)
@@ -291,7 +311,10 @@ func (m *Model) renderMetrics() string {
 	// Memory Metric
 	memStatus := "● Healthy"
 	memStatusStyle := statusStyle
-	if m.memoryPercent >= 90 {
+	memValue := fmt.Sprintf("%.1f%%", m.memoryPercent)
+	if loading {
+		memValue, memStatus, memStatusStyle = pending, pendingStatus, mutedStyle
+	} else if m.memoryPercent >= 90 {
 		memStatus = "● Critical"
 		memStatusStyle = errorStyle
 	} else if m.memoryPercent >= 75 {
@@ -299,7 +322,7 @@ func (m *Model) renderMetrics() string {
 		memStatusStyle = warningStyle
 	}
 	lines = append(lines,
-		labelStyle.Render("💾 Memory: ")+valueStyle.Render(fmt.Sprintf("%.1f%%", m.memoryPercent)),
+		labelStyle.Render("💾 Memory: ")+valueStyle.Render(memValue),
 		m.renderProgressBar(m.memoryPercent)+" "+memStatusStyle.Render(memStatus),
 		"",
 	)
@@ -307,7 +330,10 @@ func (m *Model) renderMetrics() string {
 	// Disk Metric
 	diskStatus := "● Healthy"
 	diskStatusStyle := statusStyle
-	if m.diskUsage >= 90 {
+	diskValue := fmt.Sprintf("%.1f%%", m.diskUsage)
+	if loading {
+		diskValue, diskStatus, diskStatusStyle = pending, pendingStatus, mutedStyle
+	} else if m.diskUsage >= 90 {
 		diskStatus = "● Critical"
 		diskStatusStyle = errorStyle
 	} else if m.diskUsage >= 80 {
@@ -315,7 +341,7 @@ func (m *Model) renderMetrics() string {
 		diskStatusStyle = warningStyle
 	}
 	lines = append(lines,
-		labelStyle.Render("💿 Disk: ")+valueStyle.Render(fmt.Sprintf("%.1f%%", m.diskUsage)),
+		labelStyle.Render("💿 Disk: ")+valueStyle.Render(diskValue),
 		m.renderProgressBar(m.diskUsage)+" "+diskStatusStyle.Render(diskStatus),
 		"",
 	)
@@ -323,6 +349,9 @@ func (m *Model) renderMetrics() string {
 	// Network Metric
 	totalRate := (m.netInRate + m.netOutRate) / 1024 / 1024
 	netStatus := "Idle"
+	if loading {
+		netStatus = pendingStatus
+	}
 	if totalRate > 10 {
 		netStatus = "High Activity"
 	} else if totalRate > 1 {
@@ -433,6 +462,8 @@ func (m *Model) updateSystemInfo() {
 }
 
 func (m *Model) updateMetrics(msg metricsMsg) {
+	m.metricsLoaded = true
+
 	// Update CPU
 	m.cpuPercent = msg.cpu
 	avgCPU := 0.0
