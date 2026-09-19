@@ -93,10 +93,10 @@ type Model struct {
 	diagTarget      string
 
 	// Quality test
-	qualityRunning    bool
-	qualityResult     *QualityResult
-	qualityMessage    string
-	qualityAvailable  bool
+	qualityRunning   bool
+	qualityResult    *QualityResult
+	qualityMessage   string
+	qualityAvailable bool
 
 	// Tools
 	toolMode        ToolMode
@@ -144,8 +144,8 @@ type toolCompleteMsg struct {
 // New creates a new network module
 func New(cfg *config.Config) *Model {
 	return &Model{
-		config: cfg,
-		views:  []string{"Overview", "Ports", "Diagnostics", "Quality", "Tools"},
+		config:           cfg,
+		views:            []string{"Overview", "Ports", "Diagnostics", "Quality", "Tools"},
 		qualityAvailable: checkNetworkQualityAvailable(),
 	}
 }
@@ -986,14 +986,15 @@ func (m *Model) executeWhois(target string) tea.Cmd {
 	}
 }
 
+// validTargetPattern allows domain names, IPv4 and IPv6 only.
+//
+// The hyphen is last so it is a literal. Written as `.-:` it is a range from
+// '.' (0x2E) to ':' (0x3A), which also admits '/'.
+var validTargetPattern = regexp.MustCompile(`^[a-zA-Z0-9.:-]+$`)
+
 func isValidTarget(target string) bool {
 	if target == "" {
 		return false
 	}
-	// Allow: domain names, IPv4, IPv6
-	// Simple regex for basic validation
-	validPattern := regexp.MustCompile(`^[a-zA-Z0-9.-:]+$`)
-	return validPattern.MatchString(target)
+	return validTargetPattern.MatchString(target)
 }
-
-
