@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/app"
 	"github.com/caioricciuti/dev-cockpit/internal/cli"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
@@ -12,7 +13,6 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/modules/quickactions"
 	"github.com/caioricciuti/dev-cockpit/internal/uninstaller"
 	"github.com/caioricciuti/dev-cockpit/internal/updater"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // version is injected at build time via -ldflags
@@ -144,11 +144,9 @@ func main() {
 	defer application.Close()
 
 	// Initialize Bubble Tea program
-	p := tea.NewProgram(
-		application,
-		tea.WithAltScreen(),       // Use alternate screen buffer
-		tea.WithMouseCellMotion(), // Enable mouse support
-	)
+	// bubbletea v2 moved alt screen and mouse mode off ProgramOption and onto
+	// the View returned each render; see (*app.Model).View.
+	p := tea.NewProgram(application)
 
 	// Run the program
 	if _, err := p.Run(); err != nil {

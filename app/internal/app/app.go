@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
@@ -26,7 +27,6 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/storage"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Module represents a tab in the application
@@ -278,7 +278,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the application
-func (m *Model) View() string {
+// View satisfies tea.Model. bubbletea v2 renders a tea.View rather than a
+// plain string, so the existing rendering stays in render() and this only
+// adapts the interface boundary.
+func (m *Model) View() tea.View {
+	v := tea.NewView(m.render())
+	// v1 set these as ProgramOptions; v2 declares them per render.
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (m *Model) render() string {
 	if m.quitting {
 		return "Thanks for using Dev Cockpit!\n"
 	}

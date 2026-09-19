@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	diag "github.com/caioricciuti/dev-cockpit/internal/diagnostics"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type reportMsg struct {

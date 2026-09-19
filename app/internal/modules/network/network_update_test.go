@@ -3,7 +3,7 @@ package network
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // These cover the module's state machine: which view is active after a key,
@@ -11,14 +11,27 @@ import (
 // bubbletea major upgrade is most likely to break silently, since key
 // decoding changes but the code still compiles.
 
+// key builds a v2 key press. KeyMsg is an interface in bubbletea v2, so the
+// concrete KeyPressMsg is constructed here rather than at each call site.
 func key(s string) tea.KeyMsg {
 	switch s {
 	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}
+		return tea.KeyPressMsg{Code: tea.KeyTab}
 	case "shift+tab":
-		return tea.KeyMsg{Type: tea.KeyShiftTab}
+		return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
 	default:
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+		return tea.KeyPressMsg{Code: []rune(s)[0], Text: s}
+	}
+}
+
+// The module switches on msg.String(), so the exact strings v2 produces are
+// load-bearing. If these drift, every keybinding silently stops working while
+// still compiling.
+func TestKeyStringsMatchWhatTheModuleSwitchesOn(t *testing.T) {
+	for _, want := range []string{"1", "5", "tab", "shift+tab"} {
+		if got := key(want).String(); got != want {
+			t.Errorf("key(%q).String() = %q, want %q", want, got, want)
+		}
 	}
 }
 
