@@ -1,190 +1,207 @@
-/* Dev Cockpit Brand Colors */
+/*
+ * Dev Cockpit documentation theme.
+ *
+ * The palette is taken from the TUI itself (internal/ui/components/styles.go)
+ * so the site and the app look like the same product:
+ *
+ *   primary   #00D9FF   secondary #FFA500   accent  #FF6AC1
+ *   success   #0FD976   error     #FF6B6B   highlight #FFD700
+ *
+ * #00D9FF is bright enough to fail contrast on white, so light mode uses a
+ * darkened cyan for anything that carries text, and the full-strength colour
+ * is kept for dark mode and for large decorative elements.
+ */
+
 :root {
-  /* Brand Colors - Updated */
-  --vp-c-brand-1: #ED78FF;
-  --vp-c-brand-2: #1100FF;
-  --vp-c-brand-3: #D644FF;
-  --vp-c-brand-soft: rgba(237, 120, 255, 0.14);
-  
-  /* Button Colors */
-  --vp-button-brand-bg: #ED78FF;
-  --vp-button-brand-border: #ED78FF;
-  --vp-button-brand-hover-bg: #1100FF;
-  --vp-button-brand-hover-border: #1100FF;
-  --vp-button-brand-active-bg: #0D00CC;
-  --vp-button-brand-active-border: #0D00CC;
-  
-  /* Home Hero */
+  /*
+   * #00708F measures 5.66:1 on white and 4.95:1 on the translucent chip
+   * behind inline code, so key names in the reference tables clear AA too.
+   * A lighter cyan passes against plain white but fails on that chip.
+   */
+  --vp-c-brand-1: #00708f;
+  --vp-c-brand-2: #005f7a;
+  --vp-c-brand-3: #00d9ff;
+  --vp-c-brand-soft: rgba(0, 217, 255, 0.14);
+
+  /*
+   * Hover goes darker, not lighter. White text on a brightened cyan measures
+   * about 2.9:1, which is unreadable.
+   */
+  --vp-button-brand-bg: #00708f;
+  --vp-button-brand-border: #00708f;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-hover-bg: #005f7a;
+  --vp-button-brand-hover-border: #005f7a;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-active-bg: #004d63;
+  --vp-button-brand-active-border: #004d63;
+
+  /* Cyan to pink echoes the cyberpunk scheme the TUI ships with. */
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #ED78FF 30%, #1100FF);
-  
-  /* Custom additions */
-  --vp-c-accent: #ED78FF;
-  --vp-c-text-accent: #ED78FF;
+  --vp-home-hero-name-background: linear-gradient(
+    120deg,
+    #00a3cc 20%,
+    #ff6ac1
+  );
+  --vp-home-hero-image-background-image: linear-gradient(
+    -45deg,
+    rgba(0, 217, 255, 0.28),
+    rgba(255, 106, 193, 0.28)
+  );
+  --vp-home-hero-image-filter: blur(48px);
+
+  /* Status colours, shared with the health-score output. */
+  --dc-c-success: #0a8f4d;
+  --dc-c-warning: #a35f00;
+  --dc-c-error: #c0392b;
 }
 
-/* Dark mode adjustments */
 .dark {
-  --vp-c-brand-1: #ED78FF;
-  --vp-c-brand-2: #1100FF;
-  --vp-c-brand-3: #D644FF;
-  --vp-c-brand-soft: rgba(237, 120, 255, 0.16);
+  /* On the dark background the app's actual cyan reaches ~10:1. */
+  --vp-c-brand-1: #00d9ff;
+  --vp-c-brand-2: #5ce6ff;
+  --vp-c-brand-3: #00a3cc;
+  --vp-c-brand-soft: rgba(0, 217, 255, 0.16);
+
+  --vp-button-brand-bg: #00d9ff;
+  --vp-button-brand-border: #00d9ff;
+  /* Dark text, because white on bright cyan is unreadable. */
+  --vp-button-brand-text: #04222b;
+  --vp-button-brand-hover-bg: #5ce6ff;
+  --vp-button-brand-hover-border: #5ce6ff;
+  --vp-button-brand-hover-text: #04222b;
+  --vp-button-brand-active-bg: #00a3cc;
+  --vp-button-brand-active-border: #00a3cc;
+
+  --vp-home-hero-name-background: linear-gradient(
+    120deg,
+    #00d9ff 20%,
+    #ff6ac1
+  );
+
+  --dc-c-success: #0fd976;
+  --dc-c-warning: #ffa500;
+  --dc-c-error: #ff6b6b;
 }
 
-/* Sponsors Section */
-.sponsors-section {
-  margin: 4rem 0;
-  padding: 2rem 0;
+/* ---------------------------------------------------------------------------
+ * Tables
+ *
+ * The reference pages are mostly tables of keys, flags and defaults, so they
+ * carry more of the design than usual.
+ * ------------------------------------------------------------------------ */
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+  margin: 1.25rem 0;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.vp-doc th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+}
+
+.vp-doc tr {
+  background: transparent;
   border-top: 1px solid var(--vp-c-divider);
 }
 
-.sponsors-container {
-  max-width: 1152px;
-  margin: 0 auto;
-  padding: 0 24px;
-  text-align: center;
+.vp-doc tr:hover td {
+  background: var(--vp-c-bg-soft);
 }
 
-.sponsors-title {
-  font-size: 2rem;
+/* The first column of a reference table is the key, flag or setting. */
+.vp-doc td:first-child code {
+  color: var(--vp-c-brand-1);
   font-weight: 600;
-  margin-bottom: 0.5rem;
 }
 
-.sponsors-subtitle {
-  color: var(--vp-c-text-2);
-  margin-bottom: 2rem;
+/* Tables can be wider than the page on a phone; let them scroll on their own
+   rather than pushing the whole document sideways. */
+.vp-doc div[class*="language-"] + table,
+.vp-doc table {
+  display: block;
+  overflow-x: auto;
+  white-space: normal;
 }
 
-.sponsors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 2rem;
-  margin: 2rem 0;
+@media (min-width: 640px) {
+  .vp-doc table {
+    display: table;
+  }
 }
 
-.sponsor-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.5rem;
-  border: 1px solid var(--vp-c-divider);
+/* ---------------------------------------------------------------------------
+ * Inline code and code blocks
+ * ------------------------------------------------------------------------ */
+
+.vp-doc :not(pre) > code {
+  font-size: 0.875em;
+  border-radius: 4px;
+}
+
+.vp-doc div[class*="language-"] {
   border-radius: 8px;
-  text-decoration: none;
-  transition: all 0.3s ease;
 }
 
-.sponsor-card:hover {
-  border-color: var(--vp-c-brand-1);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+/* ---------------------------------------------------------------------------
+ * Home page
+ * ------------------------------------------------------------------------ */
 
-.sponsor-logo {
-  width: auto;
-  height: 60px;
-  object-fit: contain;
-  margin-bottom: 1rem;
-}
-
-.sponsor-name {
-  color: var(--vp-c-text-1);
-  font-weight: 500;
-}
-
-.sponsor-button {
-  display: inline-block;
-  margin-top: 2rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--vp-c-brand-1);
-  color: white;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.sponsor-button:hover {
-  background: var(--vp-c-brand-2);
-}
-
-/* Screenshot styles for markdown images */
-.vp-doc img[alt*="CH-UI"],
-.vp-doc img[alt*="SQL"],
-.vp-doc img[alt*="Database"],
-.vp-doc img[alt*="Query"],
-.vp-doc img[alt*="Metrics"],
-.vp-doc img[alt*="Table"],
-.vp-doc img[alt*="User"],
-.vp-doc img[alt*="Settings"],
-.vp-doc img[alt*="Advanced"],
-.vp-doc img[alt*="Data"],
-.vp-doc img[alt*="Performance"] {
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
-  margin: 1rem 0;
-}
-
-.vp-doc img[alt*="CH-UI"]:hover,
-.vp-doc img[alt*="SQL"]:hover,
-.vp-doc img[alt*="Database"]:hover,
-.vp-doc img[alt*="Query"]:hover,
-.vp-doc img[alt*="Metrics"]:hover,
-.vp-doc img[alt*="Table"]:hover,
-.vp-doc img[alt*="User"]:hover,
-.vp-doc img[alt*="Settings"]:hover,
-.vp-doc img[alt*="Advanced"]:hover,
-.vp-doc img[alt*="Data"]:hover,
-.vp-doc img[alt*="Performance"]:hover {
-  transform: scale(1.02);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-}
-
-/* Screenshot Modal */
-.screenshot-modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
-  cursor: pointer;
-}
-
-.screenshot-modal.active {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.screenshot-modal img {
-  max-width: 90%;
-  max-height: 90%;
-  object-fit: contain;
-}
-
-/* Fix logo in dark mode */
-.dark .VPImage.logo {
-  filter: brightness(1.2);
-}
-
-/* Improve feature cards */
 .VPFeature {
-  transition: transform 0.3s ease;
+  border-color: var(--vp-c-divider);
+  transition:
+    border-color 0.25s,
+    transform 0.25s;
 }
 
 .VPFeature:hover {
+  border-color: var(--vp-c-brand-1);
   transform: translateY(-2px);
 }
 
-/* Buy Me a Coffee Button styling */
-.coffee-button {
-  text-align: center;
-  margin: 3rem 0;
-  padding: 2rem 0;
-  border-top: 1px solid var(--vp-c-divider);
+/* The logo is a dark-on-light mark, so lift it slightly in dark mode. */
+.dark .VPImage.logo {
+  filter: brightness(1.15);
+}
+
+/* ---------------------------------------------------------------------------
+ * Screenshots
+ *
+ * Replaces a block of selectors that matched alt text from an unrelated
+ * project and therefore never applied to anything here.
+ * ------------------------------------------------------------------------ */
+
+.vp-doc img {
+  border-radius: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Accessibility
+ * ------------------------------------------------------------------------ */
+
+/* VitePress hides the default outline in places; keep a visible focus ring for
+   keyboard users, which matters on a site whose subject is keyboard driven. */
+.vp-doc a:focus-visible,
+.VPButton:focus-visible,
+.VPFeature:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .VPFeature,
+  .VPFeature:hover {
+    transition: none;
+    transform: none;
+  }
 }
