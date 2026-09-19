@@ -12,17 +12,17 @@ func cmdSecurity() {
 	result := diagnostics.CheckSecurity()
 
 	printStatus("Security", result.Status, result.Summary)
-	fmt.Println()
+	fmt.Fprintln(stdout)
 
 	for _, d := range result.Details {
-		fmt.Printf("  %s\n", valueStyle.Render(d))
+		fmt.Fprintf(stdout, "  %s\n", valueStyle.Render(d))
 	}
 
 	if len(result.Suggestions) > 0 {
-		fmt.Println()
+		fmt.Fprintln(stdout)
 		for _, s := range result.Suggestions {
-			fmt.Printf("  %s %s\n", warnStyle.Render("→"), s)
+			fmt.Fprintf(stdout, "  %s %s\n", warnStyle.Render("→"), s)
 		}
 	}
-	fmt.Println()
+	fmt.Fprintln(stdout)
 }

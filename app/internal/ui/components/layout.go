@@ -1,7 +1,7 @@
 package components
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Layout manages terminal space and prevents overflow

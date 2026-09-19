@@ -22,11 +22,11 @@ func cmdCleanupList() {
 		exitErr("Cannot determine home directory")
 	}
 
-	fmt.Printf("  %-25s  %s\n",
+	fmt.Fprintf(stdout, "  %-25s  %s\n",
 		mutedStyle.Render("CACHE"),
 		mutedStyle.Render("SIZE"),
 	)
-	fmt.Printf("  %s\n", mutedStyle.Render(strings.Repeat("─", 40)))
+	fmt.Fprintf(stdout, "  %s\n", mutedStyle.Render(strings.Repeat("─", 40)))
 
 	var totalBytes uint64
 
@@ -48,11 +48,11 @@ func cmdCleanupList() {
 			sizeStyle = critStyle
 		}
 
-		fmt.Printf("  %-25s  %s\n", loc.name, sizeStyle.Render(sizeStr))
+		fmt.Fprintf(stdout, "  %-25s  %s\n", loc.name, sizeStyle.Render(sizeStr))
 	}
 
-	fmt.Printf("  %s\n", mutedStyle.Render(strings.Repeat("─", 40)))
-	fmt.Printf("  %-25s  %s\n\n",
+	fmt.Fprintf(stdout, "  %s\n", mutedStyle.Render(strings.Repeat("─", 40)))
+	fmt.Fprintf(stdout, "  %-25s  %s\n\n",
 		labelStyle.Bold(true).Render("Total"),
 		labelStyle.Bold(true).Render(formatSize(totalBytes)),
 	)

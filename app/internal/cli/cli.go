@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/diagnostics"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -64,7 +64,7 @@ func Run(args []string, version string) bool {
 }
 
 func printHeader(title string) {
-	fmt.Println(headerStyle.Render(title))
+	fmt.Fprintln(stdout, headerStyle.Render(title))
 }
 
 func printStatus(label string, sev diagnostics.Severity, detail string) {
@@ -78,11 +78,11 @@ func printStatus(label string, sev diagnostics.Severity, detail string) {
 		icon = critStyle.Render("✗")
 		sevStr = critStyle.Render("CRIT")
 	}
-	fmt.Printf("  %s %s %s  %s\n", icon, labelStyle.Render(label), sevStr, valueStyle.Render(detail))
+	fmt.Fprintf(stdout, "  %s %s %s  %s\n", icon, labelStyle.Render(label), sevStr, valueStyle.Render(detail))
 }
 
 func printRow(label, value string) {
-	fmt.Printf("  %s %s\n", labelStyle.Render(label), valueStyle.Render(value))
+	fmt.Fprintf(stdout, "  %s %s\n", labelStyle.Render(label), valueStyle.Render(value))
 }
 
 func exitErr(msg string) {

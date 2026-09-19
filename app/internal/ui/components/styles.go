@@ -1,28 +1,32 @@
 package components
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // Theme defines the color palette
 type Theme struct {
 	// Primary colors
-	Primary   lipgloss.Color
-	Secondary lipgloss.Color
-	Accent    lipgloss.Color
+	Primary   color.Color
+	Secondary color.Color
+	Accent    color.Color
 
 	// Status colors
-	Success lipgloss.Color
-	Warning lipgloss.Color
-	Error   lipgloss.Color
-	Info    lipgloss.Color
+	Success color.Color
+	Warning color.Color
+	Error   color.Color
+	Info    color.Color
 
 	// UI colors
-	Background lipgloss.Color
-	Foreground lipgloss.Color
-	Muted      lipgloss.Color
-	Border     lipgloss.Color
+	Background color.Color
+	Foreground color.Color
+	Muted      color.Color
+	Border     color.Color
 
 	// Special
-	Highlight lipgloss.Color
+	Highlight color.Color
 }
 
 // DefaultTheme returns the cyberpunk-inspired theme
@@ -121,7 +125,7 @@ func (s *BaseStyles) Info() lipgloss.Style {
 }
 
 // Box creates a bordered box style with proper dimensions
-func (s *BaseStyles) Box(width, height int, borderColor lipgloss.Color) lipgloss.Style {
+func (s *BaseStyles) Box(width, height int, borderColor color.Color) lipgloss.Style {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
@@ -150,22 +154,22 @@ func (s *BaseStyles) ActiveCard(width, height int) lipgloss.Style {
 
 // StatusIndicator returns a styled status indicator
 func (s *BaseStyles) StatusIndicator(status string, level string) string {
-	var color lipgloss.Color
+	var c color.Color
 	switch level {
 	case "success", "good", "healthy":
-		color = s.Theme.Success
+		c = s.Theme.Success
 	case "warning", "caution":
-		color = s.Theme.Warning
+		c = s.Theme.Warning
 	case "error", "critical", "danger":
-		color = s.Theme.Error
+		c = s.Theme.Error
 	case "info", "normal":
-		color = s.Theme.Info
+		c = s.Theme.Info
 	default:
-		color = s.Theme.Muted
+		c = s.Theme.Muted
 	}
 
 	return lipgloss.NewStyle().
-		Foreground(color).
+		Foreground(c).
 		Bold(true).
 		Render("● " + status)
 }
@@ -188,7 +192,7 @@ func (s *BaseStyles) ProgressBar(percent float64, width int) string {
 	}
 
 	// Determine color based on percentage
-	var barColor lipgloss.Color
+	var barColor color.Color
 	if percent >= 90 {
 		barColor = s.Theme.Error
 	} else if percent >= 75 {
@@ -218,13 +222,13 @@ func (s *BaseStyles) Spinner(frame int) string {
 }
 
 // Badge renders a small badge
-func (s *BaseStyles) Badge(text string, color lipgloss.Color) string {
+func (s *BaseStyles) Badge(text string, c color.Color) string {
 	return lipgloss.NewStyle().
-		Foreground(color).
+		Foreground(c).
 		Background(s.Theme.Background).
 		Padding(0, 1).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(color).
+		BorderForeground(c).
 		Render(text)
 }
 

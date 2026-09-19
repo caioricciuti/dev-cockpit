@@ -16,26 +16,26 @@ func cmdServices() {
 
 	out, err := exec.CommandContext(ctx, "brew", "services", "list").Output()
 	if err != nil {
-		fmt.Println(mutedStyle.Render("  Homebrew services not available"))
-		fmt.Println()
+		fmt.Fprintln(stdout, mutedStyle.Render("  Homebrew services not available"))
+		fmt.Fprintln(stdout)
 		return
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	if len(lines) <= 1 {
-		fmt.Println(mutedStyle.Render("  No services found"))
-		fmt.Println()
+		fmt.Fprintln(stdout, mutedStyle.Render("  No services found"))
+		fmt.Fprintln(stdout)
 		return
 	}
 
 	var running, stopped, errored int
 
-	fmt.Printf("  %-20s  %-10s  %s\n",
+	fmt.Fprintf(stdout, "  %-20s  %-10s  %s\n",
 		mutedStyle.Render("SERVICE"),
 		mutedStyle.Render("STATUS"),
 		mutedStyle.Render("DETAILS"),
 	)
-	fmt.Printf("  %s\n", mutedStyle.Render(strings.Repeat("─", 50)))
+	fmt.Fprintf(stdout, "  %s\n", mutedStyle.Render(strings.Repeat("─", 50)))
 
 	for i, line := range lines {
 		if i == 0 {
@@ -66,12 +66,12 @@ func cmdServices() {
 			statusStyled = mutedStyle.Render("stopped")
 		}
 
-		fmt.Printf("  %-20s  %-10s  %s\n", name, statusStyled, mutedStyle.Render(detail))
+		fmt.Fprintf(stdout, "  %-20s  %-10s  %s\n", name, statusStyled, mutedStyle.Render(detail))
 	}
 
-	fmt.Println()
+	fmt.Fprintln(stdout)
 	total := running + stopped + errored
-	fmt.Printf("  %s\n\n",
+	fmt.Fprintf(stdout, "  %s\n\n",
 		mutedStyle.Render(fmt.Sprintf("%d total: %d running, %d stopped, %d error", total, running, stopped, errored)),
 	)
 }

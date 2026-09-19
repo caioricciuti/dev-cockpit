@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/modules/cleanup"
@@ -26,7 +27,6 @@ import (
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // Module represents a tab in the application

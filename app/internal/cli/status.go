@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/diagnostics"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -42,7 +42,7 @@ func cmdStatus(version string) {
 	}
 	printRow("Disk", diskStr)
 
-	fmt.Println()
+	fmt.Fprintln(stdout)
 
 	// Quick diagnostics score
 	report := diagnostics.RunAll()
@@ -56,7 +56,7 @@ func cmdStatus(version string) {
 	}
 
 	scoreBar := renderScoreBar(report.Score)
-	fmt.Printf("  %s %s %s\n\n",
+	fmt.Fprintf(stdout, "  %s %s %s\n\n",
 		labelStyle.Render("Health Score"),
 		scoreBar,
 		gradeStyle.Bold(true).Render(fmt.Sprintf("%d/100 [%s]", report.Score, report.Grade)),
@@ -65,11 +65,11 @@ func cmdStatus(version string) {
 	for _, c := range report.Checks {
 		printStatus(c.Category, c.Status, c.Summary)
 	}
-	fmt.Println()
+	fmt.Fprintln(stdout)
 
 	if report.Score < 75 {
-		fmt.Println(mutedStyle.Render("  Run 'devcockpit diag' for details and suggestions."))
-		fmt.Println()
+		fmt.Fprintln(stdout, mutedStyle.Render("  Run 'devcockpit diag' for details and suggestions."))
+		fmt.Fprintln(stdout)
 	}
 }
 

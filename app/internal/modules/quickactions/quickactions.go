@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	sudohelper "github.com/caioricciuti/dev-cockpit/internal/sudo"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/events"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (

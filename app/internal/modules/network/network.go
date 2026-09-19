@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	gnet "github.com/shirou/gopsutil/v4/net"
 )
 

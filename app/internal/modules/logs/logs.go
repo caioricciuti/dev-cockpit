@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/caioricciuti/dev-cockpit/internal/config"
 	"github.com/caioricciuti/dev-cockpit/internal/logger"
 	"github.com/caioricciuti/dev-cockpit/internal/ui/components"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // ViewMode for log source tabs
