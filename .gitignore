@@ -38,4 +38,8 @@ temp/
 /node_modules/
 /docs/node_modules/
 
+# VitePress build output and prebundle cache (regenerated, never reviewed)
+/docs/.vitepress/cache/
+/docs/.vitepress/dist/
+
 .claude/

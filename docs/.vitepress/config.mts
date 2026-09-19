@@ -15,8 +15,8 @@ export default defineConfig({
       "script",
       {
         defer: "",
-        "data-site": "site_207ed1aa913a3eac",
-        src: "https://light.yaat.io/s.js",
+        src: "https://a.caioricciuti.com/b.js",
+        "data-website-id": "4322d182-2ae0-40c4-ba2f-0587de08d1ee",
       },
     ],
   ],

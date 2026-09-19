@@ -33,40 +33,50 @@ jobs:
         with:
           go-version: '1.25'
 
+      # Tag name is attacker-shaped input, so it goes through env, never
+      # straight into the script body.
       - name: Get version from release
         id: get_version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build binary
         working-directory: ./app
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
         run: |
-          echo "Building Dev Cockpit ${{ steps.get_version.outputs.VERSION }} for ${{ matrix.os }}/${{ matrix.arch }}"
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-            -ldflags="-X main.version=${{ steps.get_version.outputs.VERSION }} -s -w" \
-            -o ../devcockpit-${{ matrix.os }}-${{ matrix.arch }} \
+          echo "Building Dev Cockpit $VERSION for $GOOS/$GOARCH"
+          go build \
+            -ldflags="-X main.version=$VERSION -s -w" \
+            -o "../devcockpit-$GOOS-$GOARCH" \
             ./cmd/devcockpit
 
       - name: Generate checksum
-        run: |
-          if command -v sha256sum &> /dev/null; then
-            sha256sum devcockpit-${{ matrix.os }}-${{ matrix.arch }} > devcockpit-${{ matrix.os }}-${{ matrix.arch }}.sha256
-          else
-            shasum -a 256 devcockpit-${{ matrix.os }}-${{ matrix.arch }} > devcockpit-${{ matrix.os }}-${{ matrix.arch }}.sha256
-          fi
-          cat devcockpit-${{ matrix.os }}-${{ matrix.arch }}.sha256
-
-      - name: Upload binaries to release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.event.release.tag_name }}
-          files: |
-            devcockpit-${{ matrix.os }}-${{ matrix.arch }}
-            devcockpit-${{ matrix.os }}-${{ matrix.arch }}.sha256
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET: devcockpit-${{ matrix.os }}-${{ matrix.arch }}
+        run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$ASSET" > "$ASSET.sha256"
+          else
+            shasum -a 256 "$ASSET" > "$ASSET.sha256"
+          fi
+          cat "$ASSET.sha256"
+
+      # Uploaded with the preinstalled gh CLI rather than a third-party action,
+      # so nothing outside GitHub holds contents:write on this repo.
+      - name: Upload binaries to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+          ASSET: devcockpit-${{ matrix.os }}-${{ matrix.arch }}
+        run: |
+          gh release upload "$TAG" "$ASSET" "$ASSET.sha256" \
+            --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
