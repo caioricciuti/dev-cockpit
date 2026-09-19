@@ -23,7 +23,7 @@ import (
 type ViewMode int
 
 const (
-	ViewLive    ViewMode = iota
+	ViewLive ViewMode = iota
 	ViewHist1h
 	ViewHist6h
 	ViewHist24h

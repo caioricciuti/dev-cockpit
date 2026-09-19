@@ -16,13 +16,13 @@ import (
 
 // PackageManager represents a package manager
 type PackageManager struct {
-	Name        string
-	Binary      string
-	Installed   bool
-	Version     string
+	Name         string
+	Binary       string
+	Installed    bool
+	Version      string
 	PackageCount int
-	Outdated    int
-	CacheSize   string
+	Outdated     int
+	CacheSize    string
 }
 
 // Model represents the packages module state
@@ -726,7 +726,7 @@ func getNpmGlobalCount() int {
 		}
 		// Count lines that start with ├──, └── or contain @ version
 		if strings.HasPrefix(line, "├──") || strings.HasPrefix(line, "└──") ||
-		   (strings.Contains(line, "@") && !strings.HasPrefix(line, "npm")) {
+			(strings.Contains(line, "@") && !strings.HasPrefix(line, "npm")) {
 			count++
 		}
 	}

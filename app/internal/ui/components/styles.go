@@ -28,21 +28,21 @@ type Theme struct {
 // DefaultTheme returns the cyberpunk-inspired theme
 func DefaultTheme() Theme {
 	return Theme{
-		Primary:    lipgloss.Color("#00D9FF"), // Cyan
-		Secondary:  lipgloss.Color("#FFA500"), // Orange
-		Accent:     lipgloss.Color("#FF6AC1"), // Pink
+		Primary:   lipgloss.Color("#00D9FF"), // Cyan
+		Secondary: lipgloss.Color("#FFA500"), // Orange
+		Accent:    lipgloss.Color("#FF6AC1"), // Pink
 
-		Success:    lipgloss.Color("#0FD976"), // Green
-		Warning:    lipgloss.Color("#FFA500"), // Orange
-		Error:      lipgloss.Color("#FF6B6B"), // Red
-		Info:       lipgloss.Color("#00D9FF"), // Cyan
+		Success: lipgloss.Color("#0FD976"), // Green
+		Warning: lipgloss.Color("#FFA500"), // Orange
+		Error:   lipgloss.Color("#FF6B6B"), // Red
+		Info:    lipgloss.Color("#00D9FF"), // Cyan
 
 		Background: lipgloss.Color("#0A0A0F"), // Very dark blue
 		Foreground: lipgloss.Color("#FFFFFF"), // White
 		Muted:      lipgloss.Color("#666666"), // Gray
 		Border:     lipgloss.Color("#333333"), // Dark gray
 
-		Highlight:  lipgloss.Color("#FFD700"), // Gold
+		Highlight: lipgloss.Color("#FFD700"), // Gold
 	}
 }
 

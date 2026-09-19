@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	binaryName         = "devcockpit"
-	installDir         = "/usr/local/bin"
-	configDirName      = ".devcockpit"
-	fallbackConfigDir  = "./.devcockpit"
+	binaryName        = "devcockpit"
+	installDir        = "/usr/local/bin"
+	configDirName     = ".devcockpit"
+	fallbackConfigDir = "./.devcockpit"
 )
 
 // Colors for terminal output

@@ -341,7 +341,7 @@ func (m *Model) renderTabs() string {
 	}
 
 	// Reserve space for borders and padding in tab bar
-	availableWidth := m.width - 8 // margins and borders
+	availableWidth := m.width - 8              // margins and borders
 	tabWidth := (availableWidth / numTabs) - 2 // spacing between tabs
 	if tabWidth < 12 {
 		tabWidth = 12 // minimum width
@@ -577,7 +577,7 @@ func (m *Model) renderHint(width int) string {
 
 func (m *Model) renderHelp() string {
 	boxStyle := lipgloss.NewStyle().
-		Width(m.width - 10).
+		Width(m.width-10).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#00D9FF")).
 		Background(lipgloss.Color("#0F1419")).

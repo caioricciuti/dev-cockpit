@@ -9,7 +9,7 @@ import (
 type Severity int
 
 const (
-	OK       Severity = iota
+	OK Severity = iota
 	Warning
 	Critical
 )

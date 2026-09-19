@@ -19,7 +19,7 @@ import (
 type SortField int
 
 const (
-	SortByCPU  SortField = iota
+	SortByCPU SortField = iota
 	SortByMem
 	SortByPID
 	SortByName
