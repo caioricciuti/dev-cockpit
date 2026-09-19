@@ -27,6 +27,14 @@ export default defineConfig({
     nav: [
       { text: "Home", link: "/" },
       { text: "Getting Started", link: "/getting-started" },
+      {
+        text: "Reference",
+        items: [
+          { text: "Modules", link: "/modules" },
+          { text: "CLI", link: "/cli" },
+          { text: "Configuration", link: "/configuration" },
+        ],
+      },
       { text: "Donate", link: "https://buymeacoffee.com/caioricciuti" },
     ],
 
@@ -36,6 +44,14 @@ export default defineConfig({
         items: [
           { text: "Quick Start", link: "/getting-started" },
           { text: "Troubleshooting", link: "/troubleshooting" },
+        ],
+      },
+      {
+        text: "Reference",
+        items: [
+          { text: "Modules", link: "/modules" },
+          { text: "CLI Reference", link: "/cli" },
+          { text: "Configuration", link: "/configuration" },
         ],
       },
       {

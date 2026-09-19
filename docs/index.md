@@ -16,14 +16,23 @@ hero:
       link: https://github.com/caioricciuti/dev-cockpit
 
 features:
-  - title: Beautiful TUI
-    details: Navigate through system metrics with an intuitive terminal user interface
+  - title: Thirteen tools, one window
+    details: Dashboard, processes, services, Docker, network, packages, logs and more, without leaving the terminal or juggling six commands.
 
-  - title: Real-time Monitoring
-    details: Keep an eye on CPU, GPU, memory, disk, and network usage in real-time
+  - title: Real-time monitoring
+    details: CPU, GPU, memory, disk and network, with history kept locally in SQLite so you can see what changed rather than only what is.
 
-  - title: Keep Your System Healthy
-    details: Clean up system junk and monitor performance to ensure optimal performance
+  - title: Works as a CLI too
+    details: Every read-only view has a command-line equivalent. Output is plain text when piped, so it composes with grep, scripts and anything else.
+
+  - title: Reclaim disk space
+    details: Caches, logs, trash and downloads are scanned and sized first. You pick what goes, individually, before anything is deleted.
+
+  - title: Health score, not a wall of numbers
+    details: One graded report across disk, storage, performance, network, services and security, with the reasoning and a suggested fix behind each check.
+
+  - title: Verified updates
+    details: Releases ship with SHA-256 checksums, and the installer and updater both refuse to install anything that does not match.
 ---
 
 ## Screenshots
@@ -36,7 +45,7 @@ features:
 Run the following command in your terminal to install Dev Cockpit:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/install.sh)"
+curl -fsSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/install.sh | bash
 ```
 
 
