@@ -59,17 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/caioricciuti/dev-cockpit/main/insta
 **Linux:**
 - x86_64 (amd64) or ARM64 (aarch64) processor
 - Ubuntu 20.04+, Fedora 36+, Arch, or other modern distribution
-- Terminal with true color support (kitty, alacritty, WezTerm recommended)
-
-## Sponsors
-
-We would like to thank our sponsors for their support:
-
-### [Ibero Data](https://www.iberodata.es/?utm_source=dev-cockpit&utm_medium=docs)
-
-Empowering businesses with data-driven solutions
-
-[**Become a Sponsor →**](mailto:caio.ricciuti+sponsorship@outlook.com?subject=Dev-cockpit%20Sponsorship%20Inquiry)
+- Terminal with true color support
 
 ## Support
 If you find Dev Cockpit useful, please consider supporting the project:
